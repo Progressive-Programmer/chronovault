@@ -62,7 +62,7 @@ export function SignUpForm() {
                         <FormItem>
                             <FormLabel>Email Address</FormLabel>
                             <FormControl>
-                                <Input type="email" placeholder="you@example.com" {...field} />
+                                <Input type="email" placeholder="you@example.com" {...field} disabled={isLoading}/>
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -75,7 +75,7 @@ export function SignUpForm() {
                         <FormItem>
                             <FormLabel>Password</FormLabel>
                             <FormControl>
-                                <Input type="password" placeholder="••••••••" {...field} />
+                                <Input type="password" placeholder="••••••••" {...field} disabled={isLoading}/>
                             </FormControl>
                             <FormMessage />
                         </FormItem>

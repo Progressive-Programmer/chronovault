@@ -35,7 +35,7 @@ const menuItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const protectedRoutes = ["/dashboard", "/create", "/settings"];
+const protectedRoutes = ["/dashboard", "/create", "/settings", "/public"];
 const authRoutes = ["/login", "/signup"];
 
 
@@ -69,8 +69,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     router.push('/');
   };
 
-  // If user is logged in, but on an auth page, show a loader until the redirect happens.
-  if (!auth.loading && auth.user && isAuthPage) {
+  // If auth is loading, show a loader. This handles the initial page load.
+  if (auth.loading) {
      return (
         <div className="flex h-screen items-center justify-center">
             <Loader2 className="size-12 animate-spin text-primary" />
@@ -80,20 +80,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Do not render the full layout for landing and auth pages.
   if (isLandingPage || isAuthPage) {
+    // If user IS logged in and on an auth page, show a loader until the redirect happens.
+     if (auth.user && isAuthPage) {
+       return (
+          <div className="flex h-screen items-center justify-center">
+              <Loader2 className="size-12 animate-spin text-primary" />
+          </div>
+      );
+    }
     return <>{children}</>;
   }
 
-  // While auth is loading for any other page, show a full-screen loader.
-  if (auth.loading) {
-    return (
-        <div className="flex h-screen items-center justify-center">
-            <Loader2 className="size-12 animate-spin text-primary" />
-        </div>
-    );
-  }
 
-  // This should not be reached by unauthenticated users due to the useEffect redirect,
-  // but as a fallback, we can prevent rendering the layout.
+  // This should not be reached by unauthenticated users on protected routes due to the useEffect redirect,
+  // but as a fallback, we prevent rendering the layout.
   if (!auth.user) {
       return null;
   }

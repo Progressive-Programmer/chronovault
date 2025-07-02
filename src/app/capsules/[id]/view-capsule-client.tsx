@@ -7,11 +7,11 @@ import { updateCapsuleStatus } from '@/lib/actions';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Lock, AlertTriangle, Unlock, Eye } from 'lucide-react';
+import { Loader2, Lock, AlertTriangle, Eye } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
 enum ViewState {
-  AWAITING_KEY,
+  LOADING_AUTH,
   LOCKED,
   DECRYPTING,
   UNSEALED,
@@ -39,7 +39,7 @@ function Countdown({ openDate }: { openDate: Date }) {
 }
 
 export default function ViewCapsuleClient({ capsuleData }: { capsuleData: SerializableCapsuleDoc }) {
-    const [viewState, setViewState] = useState<ViewState>(ViewState.AWAITING_KEY);
+    const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING_AUTH);
     const [decryptedMessage, setDecryptedMessage] = useState('');
     const { masterKey, user, loading: authLoading } = useAuth();
 
@@ -47,25 +47,19 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
     const isReadyToOpen = useMemo(() => new Date() >= openDate, [openDate]);
     
     const handleDecrypt = useCallback(async () => {
+        setViewState(ViewState.DECRYPTING);
         try {
             let messageKey: CryptoKey;
 
             if (capsuleData.visibility === 'private') {
-                if (!user) {
-                    throw new Error("User not logged in for private capsule.");
-                }
-                // This is a critical check. If auth is done but we have no key, something is wrong.
-                if (!masterKey) {
-                    throw new Error("Master key not available. Please try logging out and back in.");
-                }
-                if (!capsuleData.wrappedKey || !capsuleData.keyIV) {
-                    throw new Error("Missing key material for private capsule.");
-                }
+                if (!user) throw new Error("User not logged in for private capsule.");
+                if (!masterKey) throw new Error("Master key not available. Please try logging out and back in.");
+                if (!capsuleData.wrappedKey || !capsuleData.keyIV) throw new Error("Missing key material for private capsule.");
+                
                 messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
             } else { // public
-                if (!capsuleData.key) {
-                    throw new Error("Missing key for public capsule.");
-                }
+                if (!capsuleData.key) throw new Error("Missing key for public capsule.");
+                
                 messageKey = await importKeyFromString(capsuleData.key);
             }
             
@@ -73,7 +67,6 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
             setDecryptedMessage(message);
             setViewState(ViewState.UNSEALED);
 
-            // Once successfully decrypted, update the status in Firestore so the dashboard reflects it.
             if (capsuleData.status !== 'opened') {
                 await updateCapsuleStatus(capsuleData.id, 'opened');
             }
@@ -86,41 +79,35 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
 
 
     useEffect(() => {
-        const determineViewState = async () => {
-            // If the message is already opened and we have the content, just show it.
-            // This prevents re-decrypting every time.
-            if (capsuleData.status === 'opened' && viewState !== ViewState.UNSEALED) {
-                 // But we still need to decrypt it once on first load
-            }
+        if (authLoading) {
+            setViewState(ViewState.LOADING_AUTH);
+            return;
+        }
 
-            if (authLoading) {
-                setViewState(ViewState.AWAITING_KEY);
-                return;
-            }
-    
-            if (!isReadyToOpen) {
-                setViewState(ViewState.LOCKED);
-                return;
-            }
-            
-            // If it's a private capsule, we need to ensure we have the master key before attempting decryption.
-            if (capsuleData.visibility === 'private' && !masterKey && user) {
-                // If auth is done, we have a user, but no masterKey, it's an unrecoverable error for this session.
+        if (!isReadyToOpen) {
+            setViewState(ViewState.LOCKED);
+            return;
+        }
+
+        // At this point, it's ready to open. We need to decide if we can decrypt.
+        if (capsuleData.visibility === 'private') {
+            // For private capsules, we must have a user and a master key.
+            if (user && masterKey) {
+                handleDecrypt();
+            } else {
+                // If we have a user but no key, or no user at all, decryption is impossible.
                 setViewState(ViewState.DECRYPTION_FAILED);
-                return;
             }
-    
-            setViewState(ViewState.DECRYPTING);
-            await handleDecrypt();
-        };
+        } else {
+            // Public capsules can be decrypted by anyone.
+            handleDecrypt();
+        }
 
-        determineViewState();
-
-    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt, viewState]);
+    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt]);
 
     const renderContent = () => {
         switch (viewState) {
-            case ViewState.AWAITING_KEY:
+            case ViewState.LOADING_AUTH:
                 return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /> <span className="ml-2">Verifying credentials...</span></div>;
 
             case ViewState.LOCKED:

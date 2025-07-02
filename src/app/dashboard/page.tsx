@@ -15,10 +15,8 @@ function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
     const openDate = new Date(doc.openDate);
     const now = new Date();
 
-    // Prioritize the status from the DB, default to sealed for old records.
     let status: CapsuleStatus = doc.status || 'sealed';
     
-    // If a capsule is sealed but past its open date, it's ready to be opened.
     if (status === 'sealed' && now >= openDate) {
         status = 'ready';
     }
@@ -61,66 +59,71 @@ export default function DashboardPage() {
                     setIsLoading(false);
                 }
             } else {
-                // if user is not logged in, stop loading
                 setIsLoading(false);
             }
         }
         fetchCapsules();
     }, [user]);
 
-    if (isLoading) {
-        return (
-            <div className="flex h-full items-center justify-center p-8">
-                <Loader2 className="size-12 animate-spin text-primary" />
-            </div>
-        )
-    }
+    const renderContent = () => {
+        if (isLoading) {
+            return (
+                <div className="flex h-full items-center justify-center p-8">
+                    <Loader2 className="size-12 animate-spin text-primary" />
+                </div>
+            );
+        }
 
-    const upcomingCapsules = capsules.filter(c => c.status === 'sealed');
-    const readyCapsules = capsules.filter(c => c.status === 'ready');
-    const archivedCapsules = capsules.filter(c => c.status === 'opened' || c.status === 'expired');
+        if (error) {
+            return (
+                <Alert variant="destructive" className="mt-6">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error Loading Capsules</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                </Alert>
+            );
+        }
+
+        const upcomingCapsules = capsules.filter(c => c.status === 'sealed');
+        const readyCapsules = capsules.filter(c => c.status === 'ready');
+        const archivedCapsules = capsules.filter(c => c.status === 'opened' || c.status === 'expired');
+
+        return (
+            <Tabs defaultValue="upcoming" className="w-full">
+                <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
+                    <TabsTrigger value="upcoming"><Clock className="mr-2" /> Upcoming</TabsTrigger>
+                    <TabsTrigger value="ready"><Gift className="mr-2" /> Ready to Unseal</TabsTrigger>
+                    <TabsTrigger value="archived"><Archive className="mr-2"/> Archived</TabsTrigger>
+                </TabsList>
+                <TabsContent value="upcoming" className="mt-6">
+                    <CapsuleList capsules={upcomingCapsules} emptyMessage="No upcoming capsules sealed." />
+                </TabsContent>
+                <TabsContent value="ready" className="mt-6">
+                    <CapsuleList capsules={readyCapsules} emptyMessage="No capsules are ready to be unsealed right now." />
+                </TabsContent>
+                <TabsContent value="archived" className="mt-6">
+                    <CapsuleList capsules={archivedCapsules} emptyMessage="You have no archived capsules." />
+                </TabsContent>
+            </Tabs>
+        );
+    };
 
     return (
         <div className="flex flex-col gap-8 p-4 md:p-8">
-        <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Your personal time-traveling message hub.</p>
-            </div>
-            <Button asChild>
-            <Link href="/create">
-                <PlusCircle />
-                Create New Capsule
-            </Link>
-            </Button>
-        </header>
-
-        {error && (
-             <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error Loading Capsules</AlertTitle>
-                <AlertDescription>
-                    {error}
-                </AlertDescription>
-            </Alert>
-        )}
-
-        <Tabs defaultValue="upcoming" className="w-full">
-            <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
-            <TabsTrigger value="upcoming"><Clock className="mr-2" /> Upcoming</TabsTrigger>
-            <TabsTrigger value="ready"><Gift className="mr-2" /> Ready to Unseal</TabsTrigger>
-            <TabsTrigger value="archived"><Archive className="mr-2"/> Archived</TabsTrigger>
-            </TabsList>
-            <TabsContent value="upcoming" className="mt-6">
-                <CapsuleList capsules={upcomingCapsules} emptyMessage="No upcoming capsules sealed." />
-            </TabsContent>
-            <TabsContent value="ready" className="mt-6">
-                <CapsuleList capsules={readyCapsules} emptyMessage="No capsules are ready to be unsealed right now." />
-            </TabsContent>
-            <TabsContent value="archived" className="mt-6">
-                <CapsuleList capsules={archivedCapsules} emptyMessage="You have no archived capsules." />
-            </TabsContent>
-        </Tabs>
+            <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Dashboard</h1>
+                    <p className="text-muted-foreground">Your personal time-traveling message hub.</p>
+                </div>
+                <Button asChild>
+                    <Link href="/create">
+                        <PlusCircle />
+                        Create New Capsule
+                    </Link>
+                </Button>
+            </header>
+            
+            {renderContent()}
         </div>
     );
 }
