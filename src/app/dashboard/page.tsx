@@ -1,48 +1,46 @@
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CapsuleList } from "@/components/capsule-list";
-import type { Capsule } from "@/types/capsule";
+import type { Capsule, CapsuleDoc, CapsuleStatus } from "@/types/capsule";
 import { PlusCircle, Clock, Gift, Archive } from "lucide-react";
 import Link from "next/link";
+import { getCapsulesForUser } from "@/lib/actions";
 
-const upcomingCapsules: Capsule[] = [
-  {
-    id: '1',
-    title: "Message to my future self",
-    openDate: new Date('2034-10-27T10:00:00Z'),
-    recipient: 'Yourself',
-    status: 'sealed',
-  },
-  {
-    id: '2',
-    title: "Our 10th Anniversary",
-    openDate: new Date('2028-06-15T18:30:00Z'),
-    recipient: 'Jane Doe',
-    status: 'sealed',
-  },
-];
+function mapDocToCapsule(doc: CapsuleDoc & { id: string }): Capsule {
+    const openDate = doc.openDate.toDate();
+    const now = new Date();
 
-const readyCapsules: Capsule[] = [
-  {
-    id: '3',
-    title: "A slice of 2024",
-    openDate: new Date('2024-01-01T00:00:00Z'),
-    recipient: 'Public',
-    status: 'ready',
-  },
-];
+    let status: CapsuleStatus = 'sealed';
+    // In a real app, you would also check a flag in the DB to see if it's been opened.
+    if (now >= openDate) {
+        status = 'ready';
+    }
 
-const archivedCapsules: Capsule[] = [
-  {
-    id: '4',
-    title: "University graduation memories",
-    openDate: new Date('2020-05-20T12:00:00Z'),
-    recipient: 'Group: Friends',
-    status: 'opened',
-  },
-];
+    let recipient = 'Public';
+    if (doc.visibility === 'private' && doc.recipientEmail) {
+        recipient = doc.recipientEmail;
+    } else if (doc.visibility === 'private') {
+        recipient = 'Private';
+    }
+    
+    return {
+        id: doc.id,
+        title: doc.title,
+        openDate: openDate,
+        recipient: recipient,
+        status: status,
+    };
+}
 
-export default function DashboardPage() {
+
+export default async function DashboardPage() {
+  const capsuleDocs = await getCapsulesForUser();
+  const allCapsules = capsuleDocs.map(mapDocToCapsule);
+
+  const upcomingCapsules = allCapsules.filter(c => c.status === 'sealed');
+  const readyCapsules = allCapsules.filter(c => c.status === 'ready');
+  const archivedCapsules = allCapsules.filter(c => c.status === 'opened' || c.status === 'expired');
+
   return (
     <div className="flex flex-col gap-8 p-4 md:p-8">
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

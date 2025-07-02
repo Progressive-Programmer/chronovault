@@ -3,9 +3,11 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, User, Globe, Users, Gift, Eye, History } from "lucide-react";
+import { Clock, User, Globe, Users, Gift, Eye, History, AlertTriangle } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Capsule } from "@/types/capsule";
+import Link from "next/link";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 
 const statusConfig = {
     sealed: { label: "Sealed", variant: "secondary", icon: Clock },
@@ -15,15 +17,14 @@ const statusConfig = {
 };
 
 const recipientIcons: { [key: string]: React.ElementType } = {
-  'Yourself': User,
   'Public': Globe,
-  'default': Users,
+  'default': User,
 };
 
 export function CapsuleCard({ capsule }: { capsule: Capsule }) {
-    const { title, openDate, recipient, status } = capsule;
+    const { id, title, openDate, recipient, status } = capsule;
     const { label, variant, icon: StatusIcon } = statusConfig[status];
-    const RecipientIcon = recipientIcons[recipient] || recipientIcons.default;
+    const RecipientIcon = recipient.toLowerCase() === 'public' ? recipientIcons.Public : recipientIcons.default;
     
     const isPast = new Date() > openDate;
     const dateText = isPast
@@ -54,10 +55,28 @@ export function CapsuleCard({ capsule }: { capsule: Capsule }) {
               </p>
             </div>
             <div className="flex items-center shrink-0">
-               {status === 'ready' && <Button>Unseal Capsule</Button>}
-               {status === 'opened' && <Button variant="outline">View Content</Button>}
-               {status === 'sealed' && <Button variant="outline" disabled>Sealed</Button>}
-               {status === 'expired' && <Button variant="ghost" disabled>Expired</Button>}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button asChild variant={status === 'ready' ? 'default' : 'outline'} disabled={status === 'sealed'}>
+                        <Link href={`/capsules/${id}`}>
+                            {status === 'ready' && "Unseal Capsule"}
+                            {status === 'opened' && "View Content"}
+                            {status === 'sealed' && "Sealed"}
+                            {status === 'expired' && "Expired"}
+                        </Link>
+                    </Button>
+                  </TooltipTrigger>
+                  {(status === 'ready' || status === 'opened') && (
+                    <TooltipContent>
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="size-4 text-amber-500"/>
+                            <p>You will need the secret link to view this.</p>
+                        </div>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </CardContent>
