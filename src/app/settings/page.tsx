@@ -2,10 +2,9 @@
 
 import { useAuth } from "@/context/auth-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, User, KeyRound } from "lucide-react";
+import { ProfileForm } from "./profile-form";
 
 export default function SettingsPage() {
   const { user, loading } = useAuth();
@@ -36,13 +35,10 @@ export default function SettingsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><User /> Account Information</CardTitle>
-            <CardDescription>Your personal account details.</CardDescription>
+            <CardDescription>Update your display name and view your account email.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input id="email" type="email" value={user.email || ''} disabled />
-            </div>
+          <CardContent>
+            <ProfileForm />
           </CardContent>
         </Card>
 

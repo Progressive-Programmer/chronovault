@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { deriveMasterKey } from '@/lib/crypto';
@@ -10,14 +10,17 @@ import {
   signInWithEmailAndPassword, 
   signOut as firebaseSignOut 
 } from 'firebase/auth';
+import type { UserDoc } from '@/types/user';
 
 interface AuthContextType {
   user: User | null;
+  userData: UserDoc | null;
   masterKey: CryptoKey | null;
   loading: boolean;
   signIn: (p: any) => Promise<void>;
   signUp: (p: any) => Promise<void>;
   signOut: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +37,7 @@ function generateSalt(): string {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [userData, setUserData] = useState<UserDoc | null>(null);
   const [masterKey, setMasterKey] = useState<CryptoKey | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -42,9 +46,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         return; // Do not run auth listener if Firebase is not configured
     }
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      if (!user) {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setLoading(true);
+      if (currentUser) {
+        setUser(currentUser);
+        const doc = await getUserDocument(currentUser.uid);
+        setUserData(doc);
+      } else {
+        setUser(null);
+        setUserData(null);
         setMasterKey(null); // Clear key on logout
       }
       setLoading(false);
@@ -52,18 +62,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
   
+  const refreshUserData = useCallback(async () => {
+    if (user) {
+        const doc = await getUserDocument(user.uid);
+        setUserData(doc);
+    }
+  }, [user]);
+
   const signIn = async ({ email, password }: any) => {
     if (!auth) throw new Error("Firebase is not configured. Please check your .env file.");
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const loggedInUser = userCredential.user;
     if (!loggedInUser) throw new Error("Login failed, user not found.");
 
+    // Fetch doc immediately to get salt for key derivation
     const userDoc = await getUserDocument(loggedInUser.uid);
     if (!userDoc) throw new Error("Could not find user data. Please contact support.");
     
     const derivedKey = await deriveMasterKey(password, userDoc.salt);
     setMasterKey(derivedKey);
-    setUser(loggedInUser);
+    // The onAuthStateChanged listener will handle setting user and userData state
   };
 
   const signUp = async ({ email, password }: any) => {
@@ -77,23 +95,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const derivedKey = await deriveMasterKey(password, salt);
     setMasterKey(derivedKey);
-    setUser(newUser);
+    // The onAuthStateChanged listener will handle setting user and userData state
   };
 
   const signOut = async () => {
     if (!auth) throw new Error("Firebase is not configured. Please check your .env file.");
     await firebaseSignOut(auth);
-    setUser(null);
-    setMasterKey(null);
+    // onAuthStateChanged will handle clearing all user-related state
   };
 
   const value = {
     user,
+    userData,
     masterKey,
     loading,
     signIn,
     signUp,
     signOut,
+    refreshUserData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

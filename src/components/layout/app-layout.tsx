@@ -35,7 +35,7 @@ const menuItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const protectedRoutes = ["/dashboard", "/create", "/settings", "/public"];
+const protectedRoutes = ["/dashboard", "/create", "/settings", "/capsules"];
 const authRoutes = ["/login", "/signup"];
 
 
@@ -131,10 +131,10 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
              <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
                 <Avatar className="size-8">
                     <AvatarImage src="https://placehold.co/40x40.png" alt="User" data-ai-hint="user avatar" />
-                    <AvatarFallback>{auth.user?.email?.[0].toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{auth.userData?.name?.charAt(0).toUpperCase() || auth.user?.email?.[0].toUpperCase()}</AvatarFallback>
                 </Avatar>
-                <div className="flex flex-col">
-                    <span className="text-sm font-semibold truncate">{auth.user?.email}</span>
+                <div className="flex flex-col overflow-hidden">
+                    <span className="text-sm font-semibold truncate">{auth.userData?.name || auth.user?.email}</span>
                 </div>
              </div>
              <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:w-full" onClick={handleSignOut}>

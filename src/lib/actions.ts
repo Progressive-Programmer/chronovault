@@ -8,14 +8,19 @@ import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setD
 const notConfiguredError = "Firebase is not configured. Please check your .env file.";
 
 /**
- * Creates the user document in Firestore, storing their salt.
+ * Creates the user document in Firestore, storing their salt and a default name.
  * This is called right after a user signs up.
  */
 export async function createUserDocument(uid: string, email: string, salt: string): Promise<void> {
     if (!db) throw new Error(notConfiguredError);
     try {
         const userRef = doc(db, "users", uid);
-        await setDoc(userRef, { uid, email, salt });
+        await setDoc(userRef, { 
+            uid, 
+            email, 
+            salt,
+            name: email.split('@')[0] // Set a default name from the email
+        });
     } catch(e) {
         console.error("Error creating user document: ", e);
         throw new Error("Could not create user document.");
@@ -23,7 +28,21 @@ export async function createUserDocument(uid: string, email: string, salt: strin
 }
 
 /**
- * Fetches the user's document, which contains their salt.
+ * Updates a user's profile information.
+ */
+export async function updateUserProfile(uid: string, data: { name: string }): Promise<void> {
+    if (!db) throw new Error(notConfiguredError);
+    try {
+        const userRef = doc(db, "users", uid);
+        await updateDoc(userRef, data);
+    } catch (e) {
+        console.error("Error updating user profile: ", e);
+        throw new Error("Could not update user profile.");
+    }
+}
+
+/**
+ * Fetches the user's document, which contains their salt and profile info.
  */
 export async function getUserDocument(uid: string): Promise<UserDoc | null> {
     if (!db) throw new Error(notConfiguredError);
