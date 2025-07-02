@@ -18,6 +18,7 @@ export type CapsuleDoc = {
   title: string;
   openDate: Timestamp;
   visibility: 'private' | 'public';
+  status: CapsuleStatus;
   recipientEmail: string;
   createdAt: Timestamp;
 

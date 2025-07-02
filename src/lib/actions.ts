@@ -1,9 +1,9 @@
 'use server';
 
 import { db } from "@/lib/firebase";
-import type { CapsuleDoc, SerializableCapsuleDoc } from "@/types/capsule";
+import type { CapsuleDoc, CapsuleStatus, SerializableCapsuleDoc } from "@/types/capsule";
 import type { UserDoc } from "@/types/user";
-import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc, updateDoc } from "firebase/firestore";
 
 const notConfiguredError = "Firebase is not configured. Please check your .env file.";
 
@@ -42,7 +42,7 @@ export async function getUserDocument(uid: string): Promise<UserDoc | null> {
 
 
 // NOTE: This type is now different. It accepts key materials based on visibility.
-type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate'> & { openDate: Date };
+type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate' | 'status'> & { openDate: Date };
 
 
 /**
@@ -54,6 +54,7 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
         const docRef = await addDoc(collection(db, "capsules"), {
             ...data,
             userId: userId,
+            status: 'sealed',
             openDate: Timestamp.fromDate(data.openDate),
             createdAt: Timestamp.now(),
         });
@@ -61,6 +62,21 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
     } catch (e) {
         console.error("Error adding document: ", e);
         throw new Error("Could not create capsule.");
+    }
+}
+
+/**
+ * Updates the status of a capsule.
+ */
+export async function updateCapsuleStatus(capsuleId: string, status: CapsuleStatus): Promise<void> {
+    if (!db) throw new Error(notConfiguredError);
+    try {
+        const capsuleRef = doc(db, "capsules", capsuleId);
+        await updateDoc(capsuleRef, { status });
+    } catch (e) {
+        // This is a non-critical background update. Log the error but don't throw,
+        // as the user has already seen their message.
+        console.error("Error updating capsule status: ", e);
     }
 }
 

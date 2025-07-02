@@ -15,8 +15,11 @@ function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
     const openDate = new Date(doc.openDate);
     const now = new Date();
 
-    let status: CapsuleStatus = 'sealed';
-    if (now >= openDate) {
+    // Prioritize the status from the DB, default to sealed for old records.
+    let status: CapsuleStatus = doc.status || 'sealed';
+    
+    // If a capsule is sealed but past its open date, it's ready to be opened.
+    if (status === 'sealed' && now >= openDate) {
         status = 'ready';
     }
 

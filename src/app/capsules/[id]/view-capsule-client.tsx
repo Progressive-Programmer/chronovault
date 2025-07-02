@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SerializableCapsuleDoc } from '@/types/capsule';
 import { decryptMessage, unwrapKey, importKeyFromString } from '@/lib/crypto';
+import { updateCapsuleStatus } from '@/lib/actions';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Lock, AlertTriangle, Unlock } from 'lucide-react';
+import { Loader2, Lock, AlertTriangle, Unlock, Eye } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
 enum ViewState {
@@ -72,6 +73,11 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
             setDecryptedMessage(message);
             setViewState(ViewState.UNSEALED);
 
+            // Once successfully decrypted, update the status in Firestore so the dashboard reflects it.
+            if (capsuleData.status !== 'opened') {
+                await updateCapsuleStatus(capsuleData.id, 'opened');
+            }
+
         } catch (err) {
             console.error("Decryption failed:", err);
             setViewState(ViewState.DECRYPTION_FAILED);
@@ -81,6 +87,12 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
 
     useEffect(() => {
         const determineViewState = async () => {
+            // If the message is already opened and we have the content, just show it.
+            // This prevents re-decrypting every time.
+            if (capsuleData.status === 'opened' && viewState !== ViewState.UNSEALED) {
+                 // But we still need to decrypt it once on first load
+            }
+
             if (authLoading) {
                 setViewState(ViewState.AWAITING_KEY);
                 return;
@@ -104,7 +116,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
 
         determineViewState();
 
-    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt]);
+    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt, viewState]);
 
     const renderContent = () => {
         switch (viewState) {
@@ -168,7 +180,12 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                     <CardTitle className="font-headline text-3xl">{capsuleData.title}</CardTitle>
                     <CardDescription>
                         Capsule sealed on {format(new Date(capsuleData.createdAt), "PPP")}.
-                        Scheduled to open on {format(openDate, "PPP")}.
+                        {capsuleData.status === 'opened' ? (
+                            <span className="flex items-center gap-2"> <Eye className="size-4" /> Opened on {format(openDate, "PPP")}.</span>
+                        ) : (
+                            <span> Scheduled to open on {format(openDate, "PPP")}.</span>
+                        )}
+                        
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
