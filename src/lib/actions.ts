@@ -86,7 +86,8 @@ export async function updateCapsuleStatus(capsuleId: string, status: CapsuleStat
 export async function getCapsulesForUser(userId: string): Promise<SerializableCapsuleDoc[]> {
     if (!db) throw new Error(notConfiguredError);
     try {
-        const q = query(collection(db, "capsules"), where("userId", "==", userId), orderBy("openDate", "desc"));
+        // Remove orderBy to prevent needing a composite index which can cause errors on new setups.
+        const q = query(collection(db, "capsules"), where("userId", "==", userId));
         const querySnapshot = await getDocs(q);
         const capsules: SerializableCapsuleDoc[] = [];
         querySnapshot.forEach((doc) => {
@@ -99,6 +100,10 @@ export async function getCapsulesForUser(userId: string): Promise<SerializableCa
                 createdAt: createdAt.toDate().toISOString(),
             });
         });
+
+        // Sort the results in the action itself.
+        capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
+
         return capsules;
     } catch (e) {
         console.error("Error fetching user capsules: ", e);
