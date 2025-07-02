@@ -43,11 +43,6 @@ export default function SettingsPage() {
               <Label htmlFor="email">Email Address</Label>
               <Input id="email" type="email" value={user.email || ''} disabled />
             </div>
-             <div className="space-y-2">
-              <Label htmlFor="uid">User ID</Label>
-              <Input id="uid" type="text" value={user.uid} disabled />
-               <p className="text-xs text-muted-foreground">This is your unique identifier within the system.</p>
-            </div>
           </CardContent>
         </Card>
 
