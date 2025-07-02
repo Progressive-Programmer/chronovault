@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from "@/lib/firebase";
-import type { CapsuleDoc } from "@/types/capsule";
+import type { CapsuleDoc, SerializableCapsuleDoc } from "@/types/capsule";
 import type { UserDoc } from "@/types/user";
 import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc } from "firebase/firestore";
 
@@ -58,16 +58,23 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
 /**
  * Fetches all capsules for a given user.
  */
-export async function getCapsulesForUser(userId: string): Promise<(CapsuleDoc & { id: string })[]> {
+export async function getCapsulesForUser(userId: string): Promise<SerializableCapsuleDoc[]> {
     if (!db) throw new Error(notConfiguredError);
     const q = query(collection(db, "capsules"), where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
-    const capsules: (CapsuleDoc & { id: string })[] = [];
+    const capsules: SerializableCapsuleDoc[] = [];
     querySnapshot.forEach((doc) => {
-        capsules.push({ id: doc.id, ...doc.data() as CapsuleDoc });
+        const data = doc.data() as CapsuleDoc;
+        const { openDate, createdAt, ...rest } = data;
+        capsules.push({
+            id: doc.id,
+            ...rest,
+            openDate: openDate.toDate().toISOString(),
+            createdAt: createdAt.toDate().toISOString(),
+        });
     });
     // Sort by open date, further in the future first
-    capsules.sort((a, b) => b.openDate.toMillis() - a.openDate.toMillis());
+    capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
     return capsules;
 }
 

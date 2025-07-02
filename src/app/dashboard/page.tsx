@@ -4,14 +4,14 @@ import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CapsuleList } from "@/components/capsule-list";
-import type { Capsule, CapsuleDoc, CapsuleStatus } from "@/types/capsule";
+import type { Capsule, CapsuleStatus, SerializableCapsuleDoc } from "@/types/capsule";
 import { PlusCircle, Clock, Gift, Archive, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { getCapsulesForUser } from "@/lib/actions";
 import { useAuth } from '@/context/auth-context';
 
-function mapDocToCapsule(doc: CapsuleDoc & { id: string }): Capsule {
-    const openDate = doc.openDate.toDate();
+function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
+    const openDate = new Date(doc.openDate);
     const now = new Date();
 
     let status: CapsuleStatus = 'sealed';
