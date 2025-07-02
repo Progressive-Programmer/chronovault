@@ -36,36 +36,66 @@ const menuItems = [
 ];
 
 const protectedRoutes = ["/dashboard", "/create", "/settings"];
+const authRoutes = ["/login", "/signup"];
+
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
 
-  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  const isAuthPage = authRoutes.includes(pathname);
   const isLandingPage = pathname === "/";
 
   useEffect(() => {
-    if (!auth.loading && !auth.user && protectedRoutes.some(path => pathname.startsWith(path))) {
+    if (auth.loading) return; // Wait for auth state to be determined
+
+    const isProtectedRoute = protectedRoutes.some(path => pathname.startsWith(path));
+
+    // If user is not logged in and tries to access a protected route, redirect to login
+    if (!auth.user && isProtectedRoute) {
       router.push('/login');
     }
-  }, [auth.loading, auth.user, pathname, router]);
+    
+    // If user IS logged in and tries to access login/signup, redirect to dashboard
+    if (auth.user && isAuthPage) {
+        router.push('/dashboard');
+    }
+
+  }, [auth.loading, auth.user, pathname, router, isAuthPage]);
 
   const handleSignOut = async () => {
     await auth.signOut();
     router.push('/');
   };
 
+  // If user is logged in, but on an auth page, show a loader until the redirect happens.
+  if (!auth.loading && auth.user && isAuthPage) {
+     return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="size-12 animate-spin text-primary" />
+        </div>
+    );
+  }
+
+  // Do not render the full layout for landing and auth pages.
   if (isLandingPage || isAuthPage) {
     return <>{children}</>;
   }
 
+  // While auth is loading for any other page, show a full-screen loader.
   if (auth.loading) {
     return (
         <div className="flex h-screen items-center justify-center">
             <Loader2 className="size-12 animate-spin text-primary" />
         </div>
-    )
+    );
+  }
+
+  // This should not be reached by unauthenticated users due to the useEffect redirect,
+  // but as a fallback, we can prevent rendering the layout.
+  if (!auth.user) {
+      return null;
   }
 
   return (

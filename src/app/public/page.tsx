@@ -1,68 +1,88 @@
-import { getPublicCapsules } from '@/lib/actions';
-import { CapsuleList } from '@/components/capsule-list';
+
+"use client";
+
+import { useState, useEffect } from 'react';
+import { CapsuleList } from "@/components/capsule-list";
 import type { Capsule, CapsuleStatus, SerializableCapsuleDoc } from "@/types/capsule";
+import { Globe, Loader2, AlertTriangle } from "lucide-react";
+import { getPublicCapsules } from "@/lib/actions";
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Globe } from 'lucide-react';
 
 function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
     const openDate = new Date(doc.openDate);
-    const now = new Date();
-
-    let status: CapsuleStatus = doc.status || 'sealed';
-    if (status === 'sealed' && now >= openDate) {
-        status = 'ready';
-    }
-
-    // Public capsules are always to 'Public'
-    const recipient = 'Public';
+    
+    // Public capsules are by definition 'opened' as they are past their open date
+    const status: CapsuleStatus = 'opened';
     
     return {
         id: doc.id,
         title: doc.title,
         openDate: openDate,
-        recipient: recipient,
+        recipient: 'Public', // It's a public capsule
         status: status,
     };
 }
 
+export default function PublicCapsulesPage() {
+    const [capsules, setCapsules] = useState<Capsule[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
-export default async function PublicCapsulesPage() {
-    let capsules: Capsule[] = [];
-    let error: string | null = null;
+    useEffect(() => {
+        async function fetchPublicCapsules() {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const capsuleDocs = await getPublicCapsules();
+                setCapsules(capsuleDocs.map(mapDocToCapsule));
+            } catch (err) {
+                console.error("Failed to fetch public capsules:", err);
+                setError("Could not load public capsules at this time. This may be due to a configuration issue. Please try again later.");
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        fetchPublicCapsules();
+    }, []);
 
-    try {
-        const publicCapsuleDocs = await getPublicCapsules();
-        // The server action already filters for capsules past their open date
-        capsules = publicCapsuleDocs.map(mapDocToCapsule);
-    } catch (err) {
-        console.error(err);
-        error = "Could not load public capsules at this time. Please try again later.";
-    }
+    const renderContent = () => {
+        if (isLoading) {
+            return (
+                <div className="flex h-full items-center justify-center p-8">
+                    <Loader2 className="size-12 animate-spin text-primary" />
+                </div>
+            );
+        }
 
-  return (
-    <div className="container mx-auto max-w-4xl py-8 px-4">
-      <header className="mb-8 flex items-center gap-4">
-        <Globe className="size-10 text-primary" />
-        <div>
-            <h1 className="text-4xl font-bold font-headline tracking-tight">Public Vault</h1>
-            <p className="text-muted-foreground mt-2">
-            Explore time capsules that have been unsealed and shared with the world.
-            </p>
+        if (error) {
+            return (
+                 <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error Loading Capsules</AlertTitle>
+                    <AlertDescription>
+                        {error}
+                    </AlertDescription>
+                </Alert>
+            );
+        }
+
+        return <CapsuleList capsules={capsules} emptyMessage="There are no public capsules to display at this moment." />;
+    };
+
+    return (
+        <div className="flex flex-col gap-8 p-4 md:p-8">
+            <header>
+                <h1 className="text-3xl font-bold font-headline tracking-tight flex items-center gap-2">
+                    <Globe /> Public Vault
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                    A collection of time capsules shared with the world.
+                </p>
+            </header>
+            
+            <div className="mt-6">
+                {renderContent()}
+            </div>
         </div>
-      </header>
-      
-      {error && (
-        <Alert variant="destructive" className="mb-8">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error Loading Capsules</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      <CapsuleList 
-        capsules={capsules} 
-        emptyMessage="No public capsules have been unsealed yet. Check back later!" 
-      />
-    </div>
-  );
+    );
 }
