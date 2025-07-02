@@ -38,6 +38,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+        setLoading(false);
+        return; // Do not run auth listener if Firebase is not configured
+    }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (!user) {
@@ -49,6 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
   
   const signIn = async ({ email, password }: any) => {
+    if (!auth) throw new Error("Firebase is not configured. Please check your .env file.");
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const loggedInUser = userCredential.user;
     if (!loggedInUser) throw new Error("Login failed, user not found.");
@@ -62,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async ({ email, password }: any) => {
+    if (!auth) throw new Error("Firebase is not configured. Please check your .env file.");
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const newUser = userCredential.user;
     if (!newUser) throw new Error("Sign up failed, user not created.");
@@ -75,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    if (!auth) throw new Error("Firebase is not configured. Please check your .env file.");
     await firebaseSignOut(auth);
     setUser(null);
     setMasterKey(null);

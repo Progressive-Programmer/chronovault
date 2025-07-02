@@ -1,6 +1,6 @@
-import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
+import { getFirestore, type Firestore } from "firebase/firestore";
+import { getAuth, type Auth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -11,9 +11,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
-const auth = getAuth(app);
+// Conditionally initialize Firebase to prevent server crashes with missing config.
+const app: FirebaseApp | null = firebaseConfig.apiKey
+  ? !getApps().length
+    ? initializeApp(firebaseConfig)
+    : getApp()
+  : null;
+
+const db: Firestore | null = app ? getFirestore(app) : null;
+const auth: Auth | null = app ? getAuth(app) : null;
+
 
 export { app, db, auth };
