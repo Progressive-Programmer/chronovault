@@ -22,12 +22,11 @@ import {
   PlusCircle,
   Globe,
   Settings,
-  PanelLeft,
   LogOut,
 } from "lucide-react";
 
 const menuItems = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/create", label: "Create Capsule", icon: PlusCircle },
   { href: "/public", label: "Public Capsules", icon: Globe },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -35,6 +34,11 @@ const menuItems = [
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const isLandingPage = pathname === "/";
+
+  if (isLandingPage) {
+    return <>{children}</>;
+  }
 
   return (
     <SidebarProvider>
@@ -51,7 +55,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href) && (item.href !== "/" || pathname === "/")}
                   tooltip={item.label}
                 >
                   <Link href={item.href}>
