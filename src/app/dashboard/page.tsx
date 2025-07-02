@@ -60,6 +60,9 @@ export default function DashboardPage() {
                 } finally {
                     setIsLoading(false);
                 }
+            } else {
+                // if user is not logged in, stop loading
+                setIsLoading(false);
             }
         }
         fetchCapsules();

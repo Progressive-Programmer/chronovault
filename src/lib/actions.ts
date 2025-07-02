@@ -3,7 +3,7 @@
 import { db } from "@/lib/firebase";
 import type { CapsuleDoc, CapsuleStatus, SerializableCapsuleDoc } from "@/types/capsule";
 import type { UserDoc } from "@/types/user";
-import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc, updateDoc } from "firebase/firestore";
+import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc, updateDoc, orderBy } from "firebase/firestore";
 
 const notConfiguredError = "Firebase is not configured. Please check your .env file.";
 
@@ -86,7 +86,7 @@ export async function updateCapsuleStatus(capsuleId: string, status: CapsuleStat
 export async function getCapsulesForUser(userId: string): Promise<SerializableCapsuleDoc[]> {
     if (!db) throw new Error(notConfiguredError);
     try {
-        const q = query(collection(db, "capsules"), where("userId", "==", userId));
+        const q = query(collection(db, "capsules"), where("userId", "==", userId), orderBy("openDate", "desc"));
         const querySnapshot = await getDocs(q);
         const capsules: SerializableCapsuleDoc[] = [];
         querySnapshot.forEach((doc) => {
@@ -99,14 +99,44 @@ export async function getCapsulesForUser(userId: string): Promise<SerializableCa
                 createdAt: createdAt.toDate().toISOString(),
             });
         });
-        // Sort by open date, further in the future first
-        capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
         return capsules;
     } catch (e) {
         console.error("Error fetching user capsules: ", e);
         throw new Error("Could not fetch user capsules.");
     }
 }
+
+/**
+ * Fetches all public capsules that are past their opening date.
+ */
+export async function getPublicCapsules(): Promise<SerializableCapsuleDoc[]> {
+    if (!db) throw new Error(notConfiguredError);
+    try {
+        const q = query(
+            collection(db, "capsules"),
+            where("visibility", "==", "public"),
+            where("openDate", "<=", Timestamp.now()),
+            orderBy("openDate", "desc")
+        );
+        const querySnapshot = await getDocs(q);
+        const capsules: SerializableCapsuleDoc[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as CapsuleDoc;
+            const { openDate, createdAt, ...rest } = data;
+            capsules.push({
+                id: doc.id,
+                ...rest,
+                openDate: openDate.toDate().toISOString(),
+                createdAt: createdAt.toDate().toISOString(),
+            });
+        });
+        return capsules;
+    } catch (e) {
+        console.error("Error fetching public capsules: ", e);
+        throw new Error("Could not fetch public capsules. You may need to create a composite index in Firestore.");
+    }
+}
+
 
 /**
  * Fetches a single capsule by its document ID.
