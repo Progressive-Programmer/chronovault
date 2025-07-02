@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowRight, Lock, Send, Share2 } from 'lucide-react';
+import { ArrowRight, Lock, Send, Share2, Menu } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
 import Image from 'next/image';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 
 export default function LandingPage() {
   return (
@@ -24,9 +25,39 @@ export default function LandingPage() {
             <Link href="/create">Get Started <ArrowRight className="ml-2" /></Link>
           </Button>
         </nav>
-        <Button className="md:hidden" variant="outline" asChild>
-             <Link href="/dashboard">Menu</Link>
-        </Button>
+        <div className="md:hidden">
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button variant="outline" size="icon">
+                <Menu />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right">
+                <div className="flex flex-col gap-4 p-4">
+                     <Link href="/" className="flex items-center gap-2 mb-4">
+                        <Logo className="size-8 text-primary" />
+                        <span className="text-xl font-bold font-headline text-foreground">ChronoVault</span>
+                    </Link>
+                    <SheetClose asChild>
+                        <Button variant="ghost" className="justify-start" asChild>
+                            <Link href="/public">Public Capsules</Link>
+                        </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                        <Button variant="ghost" className="justify-start" asChild>
+                            <Link href="/dashboard">Log In</Link>
+                        </Button>
+                    </SheetClose>
+                    <SheetClose asChild>
+                        <Button className="w-full justify-center" asChild>
+                            <Link href="/create">Get Started <ArrowRight className="ml-2" /></Link>
+                        </Button>
+                    </SheetClose>
+                </div>
+            </SheetContent>
+          </Sheet>
+        </div>
       </header>
 
       <main className="flex-grow">
@@ -38,7 +69,7 @@ export default function LandingPage() {
             <p className="mt-6 max-w-2xl mx-auto text-lg md:text-xl text-muted-foreground">
               ChronoVault lets you seal digital time capsules — messages, photos, and memories — to be opened on a future date you choose.
             </p>
-            <div className="mt-8 flex justify-center gap-4">
+            <div className="mt-8 flex flex-col sm:flex-row justify-center gap-4">
               <Button size="lg" asChild>
                 <Link href="/create">Create Your First Capsule <Send className="ml-2" /></Link>
               </Button>

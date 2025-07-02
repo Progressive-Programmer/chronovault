@@ -1,44 +1,44 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CapsuleCard } from "@/components/capsule-card";
+import { CapsuleList } from "@/components/capsule-list";
+import type { Capsule } from "@/types/capsule";
 import { PlusCircle, Clock, Gift, Archive } from "lucide-react";
 import Link from "next/link";
 
-const upcomingCapsules = [
+const upcomingCapsules: Capsule[] = [
   {
     id: '1',
     title: "Message to my future self",
     openDate: new Date('2034-10-27T10:00:00Z'),
     recipient: 'Yourself',
-    status: 'sealed' as const,
+    status: 'sealed',
   },
   {
     id: '2',
     title: "Our 10th Anniversary",
     openDate: new Date('2028-06-15T18:30:00Z'),
     recipient: 'Jane Doe',
-    status: 'sealed' as const,
+    status: 'sealed',
   },
 ];
 
-const readyCapsules = [
+const readyCapsules: Capsule[] = [
   {
     id: '3',
     title: "A slice of 2024",
     openDate: new Date('2024-01-01T00:00:00Z'),
     recipient: 'Public',
-    status: 'ready' as const,
+    status: 'ready',
   },
 ];
 
-const archivedCapsules = [
+const archivedCapsules: Capsule[] = [
   {
     id: '4',
     title: "University graduation memories",
     openDate: new Date('2020-05-20T12:00:00Z'),
     recipient: 'Group: Friends',
-    status: 'opened' as const,
+    status: 'opened',
   },
 ];
 
@@ -61,35 +61,17 @@ export default function DashboardPage() {
       <Tabs defaultValue="upcoming" className="w-full">
         <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
           <TabsTrigger value="upcoming"><Clock className="mr-2" /> Upcoming</TabsTrigger>
-          <TabsTrigger value="ready"><Gift className="mr-2" /> Ready for Unsealing</TabsTrigger>
+          <TabsTrigger value="ready"><Gift className="mr-2" /> Ready to Unseal</TabsTrigger>
           <TabsTrigger value="archived"><Archive className="mr-2"/> Archived</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming" className="mt-6">
-          <div className="relative flex flex-col gap-8 before:absolute before:left-4 before:top-4 before:h-full before:w-px before:bg-border">
-            {upcomingCapsules.length > 0 ? (
-              upcomingCapsules.map(capsule => <CapsuleCard key={capsule.id} capsule={capsule} />)
-            ) : (
-              <p className="text-muted-foreground pl-12">No upcoming capsules sealed.</p>
-            )}
-          </div>
+            <CapsuleList capsules={upcomingCapsules} emptyMessage="No upcoming capsules sealed." />
         </TabsContent>
         <TabsContent value="ready" className="mt-6">
-          <div className="relative flex flex-col gap-8 before:absolute before:left-4 before:top-4 before:h-full before:w-px before:bg-border">
-            {readyCapsules.length > 0 ? (
-              readyCapsules.map(capsule => <CapsuleCard key={capsule.id} capsule={capsule} />)
-            ) : (
-              <p className="text-muted-foreground pl-12">No capsules are ready to be unsealed right now.</p>
-            )}
-          </div>
+            <CapsuleList capsules={readyCapsules} emptyMessage="No capsules are ready to be unsealed right now." />
         </TabsContent>
         <TabsContent value="archived" className="mt-6">
-          <div className="relative flex flex-col gap-8 before:absolute before:left-4 before:top-4 before:h-full before:w-px before:bg-border">
-            {archivedCapsules.length > 0 ? (
-              archivedCapsules.map(capsule => <CapsuleCard key={capsule.id} capsule={capsule} />)
-            ) : (
-               <p className="text-muted-foreground pl-12">You have no archived capsules.</p>
-            )}
-          </div>
+            <CapsuleList capsules={archivedCapsules} emptyMessage="You have no archived capsules." />
         </TabsContent>
       </Tabs>
     </div>

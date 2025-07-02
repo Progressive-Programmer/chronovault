@@ -5,14 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Clock, User, Globe, Users, Gift, Eye, History } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
-
-type Capsule = {
-  id: string;
-  title: string;
-  openDate: Date;
-  recipient: string;
-  status: 'sealed' | 'ready' | 'opened' | 'expired';
-};
+import type { Capsule } from "@/types/capsule";
 
 const statusConfig = {
     sealed: { label: "Sealed", variant: "secondary", icon: Clock },
