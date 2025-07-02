@@ -13,6 +13,7 @@ import {
   MapPin,
   Lightbulb,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +79,7 @@ export function CreateCapsuleForm() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { toast } = useToast();
   const { user, masterKey } = useAuth();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -164,6 +166,11 @@ export function CreateCapsuleForm() {
     }
   }
   
+  const handleSuccess = () => {
+    setShowSuccessModal(false);
+    router.push('/dashboard');
+  };
+
   return (
     <>
       <Form {...form}>
@@ -339,7 +346,7 @@ export function CreateCapsuleForm() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowSuccessModal(false)}>Great!</AlertDialogAction>
+            <AlertDialogAction onClick={handleSuccess}>Great!</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

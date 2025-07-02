@@ -51,6 +51,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     }
   }, [auth.loading, auth.user, pathname, router]);
 
+  const handleSignOut = async () => {
+    await auth.signOut();
+    router.push('/');
+  };
+
   if (isLandingPage || isAuthPage) {
     return <>{children}</>;
   }
@@ -102,7 +107,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     <span className="text-sm font-semibold truncate">{auth.user?.email}</span>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:w-full" onClick={auth.signOut}>
+             <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:w-full" onClick={handleSignOut}>
                 <LogOut />
              </Button>
           </div>

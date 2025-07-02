@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const formSchema = z.object({
   email: z.string().email("Please enter a valid email address."),
@@ -27,8 +27,14 @@ const formSchema = z.object({
 export function LoginForm() {
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
-    const { signIn } = useAuth();
+    const { signIn, user, loading: authLoading } = useAuth();
     const router = useRouter();
+
+    useEffect(() => {
+        if (!authLoading && user) {
+            router.push('/dashboard');
+        }
+    }, [authLoading, user, router]);
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
@@ -50,6 +56,14 @@ export function LoginForm() {
         } finally {
             setIsLoading(false);
         }
+    }
+
+    if (authLoading || user) {
+        return (
+            <div className="flex justify-center items-center p-8">
+                <Loader2 className="animate-spin" />
+            </div>
+        );
     }
 
     return (
