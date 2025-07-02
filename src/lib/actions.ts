@@ -7,7 +7,9 @@ import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp } fro
 // In a real app, this would come from an authentication session (e.g., Firebase Auth, NextAuth.js).
 const MOCK_USER_ID = "user_anonymous_123";
 
+// NOTE: This type is now different. It accepts key materials based on visibility.
 type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate'> & { openDate: Date };
+
 
 /**
  * Creates a new time capsule document in Firestore.
@@ -52,6 +54,8 @@ export async function getCapsuleById(id: string): Promise<(CapsuleDoc & { id: st
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
+            // In a real app, you would have Firestore Security Rules to check if the openDate has passed
+            // for public capsules, or if the requester is the correct user for private capsules.
             return { id: docSnap.id, ...docSnap.data() as CapsuleDoc };
         } else {
             return null;

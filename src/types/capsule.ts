@@ -19,9 +19,18 @@ export type CapsuleDoc = {
   openDate: Timestamp;
   visibility: 'private' | 'public';
   recipientEmail: string;
-  encryptedMessage: string; // Base64 encoded encrypted data
-  iv: string; // Base64 encoded initialization vector
   createdAt: Timestamp;
+
+  // Encryption materials
+  messageIV: string; // IV for the message itself
+  encryptedMessage: string; // Base64 encoded encrypted message data
+  
+  // For 'private' capsules, the key is wrapped with the user's master key
+  wrappedKey?: string; // The message key, encrypted
+  keyIV?: string; // The IV for the key encryption
+
+  // For 'public' capsules, the key is stored in plaintext (but protected by Firestore rules until open)
+  key?: string; 
 };
 
 // This type is used for passing capsule data from Server Components to Client Components,

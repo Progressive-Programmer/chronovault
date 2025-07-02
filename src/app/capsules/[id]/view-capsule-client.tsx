@@ -2,20 +2,23 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { SerializableCapsuleDoc } from '@/types/capsule';
-import { decryptMessage, importKeyFromString } from '@/lib/crypto';
+import { decryptMessage, deriveMasterKey, unwrapKey, importKeyFromString } from '@/lib/crypto';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Loader2, Lock, AlertTriangle, KeyRound, Unlock } from 'lucide-react';
+import { Loader2, Lock, AlertTriangle, Unlock } from 'lucide-react';
+
+// For demonstration purposes, we're using a hardcoded password and salt.
+// In a real app, the user would enter their password upon login, and the salt
+// would be fetched from their user profile in the database.
+const MOCK_USER_PASSWORD = "my-super-secret-password-123";
+const MOCK_USER_SALT = "AAECAwQFBgcICQoLDA0ODw=="; // A Base64 encoded 16-byte salt.
 
 enum ViewState {
   LOADING,
   LOCKED,
   DECRYPTING,
   UNSEALED,
-  MISSING_KEY,
   DECRYPTION_FAILED,
   ERROR
 }
@@ -25,7 +28,12 @@ function Countdown({ openDate }: { openDate: Date }) {
 
     useEffect(() => {
         const timer = setInterval(() => {
-            setTimeLeft(formatDistanceToNowStrict(openDate));
+            if (new Date() < openDate) {
+                setTimeLeft(formatDistanceToNowStrict(openDate));
+            } else {
+                setTimeLeft("Ready to open!");
+                clearInterval(timer);
+            }
         }, 1000);
 
         return () => clearInterval(timer);
@@ -38,44 +46,51 @@ function Countdown({ openDate }: { openDate: Date }) {
 export default function ViewCapsuleClient({ capsuleData }: { capsuleData: SerializableCapsuleDoc }) {
     const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
     const [decryptedMessage, setDecryptedMessage] = useState('');
-    const [keyFromInput, setKeyFromInput] = useState('');
 
     const openDate = useMemo(() => new Date(capsuleData.openDate), [capsuleData.openDate]);
     const isReadyToOpen = useMemo(() => new Date() >= openDate, [openDate]);
     
-    const handleDecrypt = async (keyString: string) => {
-        if (!keyString) {
-            setViewState(ViewState.MISSING_KEY);
-            return;
-        }
-        
-        setViewState(ViewState.DECRYPTING);
-        try {
-            const key = await importKeyFromString(keyString);
-            const message = await decryptMessage(capsuleData.encryptedMessage, capsuleData.iv, key);
-            setDecryptedMessage(message);
-            setViewState(ViewState.UNSEALED);
-        } catch (err) {
-            console.error("Decryption failed:", err);
-            setViewState(ViewState.DECRYPTION_FAILED);
-        }
-    };
-
     useEffect(() => {
-        const keyFromHash = window.location.hash.substring(1);
-        
+        const handleDecrypt = async () => {
+            setViewState(ViewState.DECRYPTING);
+            try {
+                let messageKey: CryptoKey;
+
+                if (capsuleData.visibility === 'private') {
+                    if (!capsuleData.wrappedKey || !capsuleData.keyIV) {
+                        throw new Error("Missing key material for private capsule.");
+                    }
+                    // 1. Derive master key from password
+                    const masterKey = await deriveMasterKey(MOCK_USER_PASSWORD, MOCK_USER_SALT);
+                    // 2. Unwrap the message key
+                    messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
+                } else { // public
+                    if (!capsuleData.key) {
+                        throw new Error("Missing key for public capsule.");
+                    }
+                    // For public capsules, the key is stored directly.
+                    messageKey = await importKeyFromString(capsuleData.key);
+                }
+                
+                // 3. Decrypt the message
+                const message = await decryptMessage(capsuleData.encryptedMessage, capsuleData.messageIV, messageKey);
+                setDecryptedMessage(message);
+                setViewState(ViewState.UNSEALED);
+
+            } catch (err) {
+                console.error("Decryption failed:", err);
+                setViewState(ViewState.DECRYPTION_FAILED);
+            }
+        };
+
         if (!isReadyToOpen) {
             setViewState(ViewState.LOCKED);
             return;
         }
 
-        if (keyFromHash) {
-            handleDecrypt(keyFromHash);
-        } else {
-            setViewState(ViewState.MISSING_KEY);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isReadyToOpen]);
+        handleDecrypt();
+
+    }, [isReadyToOpen, capsuleData]);
 
     const renderContent = () => {
         switch (viewState) {
@@ -101,35 +116,13 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                     </div>
                 );
 
-            case ViewState.MISSING_KEY:
-                return (
-                    <div className="text-center">
-                        <KeyRound className="mx-auto size-12 text-destructive mb-4" />
-                        <h2 className="text-2xl font-headline">Decryption Key Required</h2>
-                        <p className="text-muted-foreground mt-2">A secret key is needed to open this capsule. It's part of the unique link you saved when creating it.</p>
-                        <div className="flex gap-2 mt-6">
-                            <Input 
-                                type="text"
-                                placeholder="Paste the secret key here" 
-                                value={keyFromInput}
-                                onChange={(e) => setKeyFromInput(e.target.value)}
-                                className="bg-background/50"
-                            />
-                            <Button onClick={() => handleDecrypt(keyFromInput)} disabled={!keyFromInput}>
-                                <Unlock/> Unlock
-                            </Button>
-                        </div>
-                         <p className="text-xs text-muted-foreground mt-2">The key is the part of the URL after the '#'.</p>
-                    </div>
-                );
-
             case ViewState.DECRYPTION_FAILED:
                 return (
                      <Alert variant="destructive">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Decryption Failed</AlertTitle>
                         <AlertDescription>
-                            The provided key is incorrect, or the message data is corrupt. Please check your secret link and try again.
+                            We couldn't decrypt this message. This can happen if the data is corrupt or if there's an issue with the encryption key. In a real app with user accounts, this might mean an incorrect password was used.
                         </AlertDescription>
                     </Alert>
                 );
@@ -142,10 +135,17 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                 );
 
             default:
-                return <p>An unexpected error occurred.</p>
+                 return (
+                     <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>An Unexpected Error Occurred</AlertTitle>
+                        <AlertDescription>
+                            Something went wrong while trying to display this capsule. Please try again later.
+                        </AlertDescription>
+                    </Alert>
+                );
         }
     }
-
 
     return (
         <div className="container mx-auto max-w-3xl py-12 px-4">

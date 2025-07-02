@@ -53,7 +53,13 @@ import { cn } from "@/lib/utils";
 import { suggestCapsuleLocation, SuggestCapsuleLocationOutput } from "@/ai/flows/capsule-location-suggestor";
 import { useToast } from "@/hooks/use-toast";
 import { createCapsule } from "@/lib/actions";
-import { generateKey, encryptMessage, exportKeyToString } from "@/lib/crypto";
+import { generateMessageKey, encryptMessage, deriveMasterKey, wrapKey, exportKeyToString } from "@/lib/crypto";
+
+// For demonstration purposes, we're using a hardcoded password and salt.
+// In a real app, the user would enter their password upon login, and the salt
+// would be fetched from their user profile in the database.
+const MOCK_USER_PASSWORD = "my-super-secret-password-123";
+const MOCK_USER_SALT = "AAECAwQFBgcICQoLDA0ODw=="; // A Base64 encoded 16-byte salt.
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long.").max(100),
@@ -81,8 +87,6 @@ export function CreateCapsuleForm() {
   const [isSuggestingLocation, setIsSuggestingLocation] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [generatedLink, setGeneratedLink] = useState("");
-  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -126,31 +130,39 @@ export function CreateCapsuleForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      // 1. Generate encryption key
-      const key = await generateKey();
+      // 1. Generate a new key for this specific message
+      const messageKey = await generateMessageKey();
       
-      // 2. Encrypt the message
-      const { iv, encrypted } = await encryptMessage(values.message, key);
+      // 2. Encrypt the message content
+      const { iv: messageIV, encrypted: encryptedMessage } = await encryptMessage(values.message, messageKey);
 
-      // 3. Prepare data for Firestore
-      const capsuleData = {
+      // 3. Prepare common data for Firestore
+      let capsuleData: any = {
         title: values.title,
         openDate: values.openDate,
         visibility: values.visibility,
         recipientEmail: values.recipientEmail || "",
-        encryptedMessage: encrypted,
-        iv: iv,
+        messageIV,
+        encryptedMessage,
       };
 
-      // 4. Save to Firestore via Server Action
-      const capsuleId = await createCapsule(capsuleData);
+      // 4. Handle key storage based on visibility
+      if (values.visibility === 'private') {
+        // For private capsules, wrap the key with the master key derived from the password
+        const masterKey = await deriveMasterKey(MOCK_USER_PASSWORD, MOCK_USER_SALT);
+        const { iv: keyIV, wrappedKey } = await wrapKey(messageKey, masterKey);
+        capsuleData.keyIV = keyIV;
+        capsuleData.wrappedKey = wrappedKey;
+      } else {
+        // For public capsules, store the key directly (it's protected by Firestore rules until opening)
+        capsuleData.key = await exportKeyToString(messageKey);
+      }
 
-      // 5. Generate the secret link
-      const keyString = await exportKeyToString(key);
-      const link = `${window.location.origin}/capsules/${capsuleId}#${keyString}`;
-      setGeneratedLink(link);
+      // 5. Save to Firestore via Server Action
+      await createCapsule(capsuleData);
+
+      // 6. Show success and reset form
       setShowSuccessModal(true);
-      
       form.reset();
       setAiSuggestion(null);
 
@@ -165,13 +177,7 @@ export function CreateCapsuleForm() {
       setIsSubmitting(false);
     }
   }
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(generatedLink);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
+  
   return (
     <>
       <Form {...form}>
@@ -208,7 +214,7 @@ export function CreateCapsuleForm() {
                       />
                     </FormControl>
                      <FormDescription>
-                      Your message will be end-to-end encrypted. Only the person with the secret link can read it.
+                      Your message is end-to-end encrypted. No one, not even us, can read it.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -309,7 +315,7 @@ export function CreateCapsuleForm() {
                             <RadioGroupItem value="private" />
                           </FormControl>
                           <FormLabel className="font-normal">
-                            Private (requires recipient's email)
+                            Private (only you and the recipient can open)
                           </FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-3 space-y-0">
@@ -317,7 +323,7 @@ export function CreateCapsuleForm() {
                             <RadioGroupItem value="public" />
                           </FormControl>
                           <FormLabel className="font-normal">
-                            Public (anyone with the link can view on open date)
+                            Public (anyone can view on open date)
                           </FormLabel>
                         </FormItem>
                       </RadioGroup>
@@ -358,18 +364,11 @@ export function CreateCapsuleForm() {
           <AlertDialogHeader>
             <AlertDialogTitle>Capsule Sealed & Secured!</AlertDialogTitle>
             <AlertDialogDescription>
-              Your time capsule is now sealed. To open it in the future, you MUST use this secret link.
-              <span className="font-bold text-destructive"> Save this link somewhere safe. If you lose it, your message cannot be recovered.</span>
+              Your time capsule is now sealed and securely stored. You can view it from your dashboard once the opening date arrives.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="relative rounded-md bg-muted p-4">
-              <p className="break-all text-sm text-muted-foreground">{generatedLink}</p>
-              <Button variant="ghost" size="icon" className="absolute top-2 right-2" onClick={handleCopy}>
-                {copied ? <Check className="text-green-500" /> : <Copy />}
-              </Button>
-          </div>
           <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowSuccessModal(false)}>I have saved the link</AlertDialogAction>
+            <AlertDialogAction onClick={() => setShowSuccessModal(false)}>Great!</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

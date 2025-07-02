@@ -3,7 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, User, Globe, Users, Gift, Eye, History, AlertTriangle } from "lucide-react";
+import { Clock, User, Globe, Gift, Eye, History } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import type { Capsule } from "@/types/capsule";
 import Link from "next/link";
@@ -69,10 +69,7 @@ export function CapsuleCard({ capsule }: { capsule: Capsule }) {
                   </TooltipTrigger>
                   {(status === 'ready' || status === 'opened') && (
                     <TooltipContent>
-                        <div className="flex items-center gap-2">
-                            <AlertTriangle className="size-4 text-amber-500"/>
-                            <p>You will need the secret link to view this.</p>
-                        </div>
+                        <p>You can now view this capsule.</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
