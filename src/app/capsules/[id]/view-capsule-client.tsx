@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { SerializableCapsuleDoc } from '@/types/capsule';
 import { decryptMessage, unwrapKey, importKeyFromString } from '@/lib/crypto';
 import { format, formatDistanceToNowStrict } from 'date-fns';
@@ -45,57 +45,66 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
     const openDate = useMemo(() => new Date(capsuleData.openDate), [capsuleData.openDate]);
     const isReadyToOpen = useMemo(() => new Date() >= openDate, [openDate]);
     
-    useEffect(() => {
-        const handleDecrypt = async () => {
-            setViewState(ViewState.DECRYPTING);
-            try {
-                let messageKey: CryptoKey;
+    const handleDecrypt = useCallback(async () => {
+        try {
+            let messageKey: CryptoKey;
 
-                if (capsuleData.visibility === 'private') {
-                    if (!user) {
-                        setViewState(ViewState.ERROR);
-                        console.error("User not logged in for private capsule.");
-                        return;
-                    }
-                     if (!masterKey) {
-                        setViewState(ViewState.AWAITING_KEY);
-                        console.error("Master key not available for private capsule. User might need to log in again.");
-                        return;
-                    }
-                    if (!capsuleData.wrappedKey || !capsuleData.keyIV) {
-                        throw new Error("Missing key material for private capsule.");
-                    }
-                    messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
-                } else { // public
-                    if (!capsuleData.key) {
-                        throw new Error("Missing key for public capsule.");
-                    }
-                    messageKey = await importKeyFromString(capsuleData.key);
+            if (capsuleData.visibility === 'private') {
+                if (!user) {
+                    throw new Error("User not logged in for private capsule.");
                 }
-                
-                const message = await decryptMessage(capsuleData.encryptedMessage, capsuleData.messageIV, messageKey);
-                setDecryptedMessage(message);
-                setViewState(ViewState.UNSEALED);
-
-            } catch (err) {
-                console.error("Decryption failed:", err);
-                setViewState(ViewState.DECRYPTION_FAILED);
+                // This is a critical check. If auth is done but we have no key, something is wrong.
+                if (!masterKey) {
+                    throw new Error("Master key not available. Please try logging out and back in.");
+                }
+                if (!capsuleData.wrappedKey || !capsuleData.keyIV) {
+                    throw new Error("Missing key material for private capsule.");
+                }
+                messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
+            } else { // public
+                if (!capsuleData.key) {
+                    throw new Error("Missing key for public capsule.");
+                }
+                messageKey = await importKeyFromString(capsuleData.key);
             }
+            
+            const message = await decryptMessage(capsuleData.encryptedMessage, capsuleData.messageIV, messageKey);
+            setDecryptedMessage(message);
+            setViewState(ViewState.UNSEALED);
+
+        } catch (err) {
+            console.error("Decryption failed:", err);
+            setViewState(ViewState.DECRYPTION_FAILED);
+        }
+    }, [capsuleData, masterKey, user]);
+
+
+    useEffect(() => {
+        const determineViewState = async () => {
+            if (authLoading) {
+                setViewState(ViewState.AWAITING_KEY);
+                return;
+            }
+    
+            if (!isReadyToOpen) {
+                setViewState(ViewState.LOCKED);
+                return;
+            }
+            
+            // If it's a private capsule, we need to ensure we have the master key before attempting decryption.
+            if (capsuleData.visibility === 'private' && !masterKey && user) {
+                // If auth is done, we have a user, but no masterKey, it's an unrecoverable error for this session.
+                setViewState(ViewState.DECRYPTION_FAILED);
+                return;
+            }
+    
+            setViewState(ViewState.DECRYPTING);
+            await handleDecrypt();
         };
 
-        if (authLoading) {
-            setViewState(ViewState.AWAITING_KEY);
-            return;
-        }
+        determineViewState();
 
-        if (!isReadyToOpen) {
-            setViewState(ViewState.LOCKED);
-            return;
-        }
-
-        handleDecrypt();
-
-    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading]);
+    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt]);
 
     const renderContent = () => {
         switch (viewState) {
@@ -127,7 +136,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Decryption Failed</AlertTitle>
                         <AlertDescription>
-                            We couldn&apos;t decrypt this message. This can happen if the data is corrupt or if there&apos;s an issue with the encryption key. For private capsules, this can mean your session expired; try logging out and back in.
+                            We couldn&apos;t decrypt this message. This can happen if the data is corrupt or the encryption key is missing. For private capsules, your session may have expired; please try logging out and back in.
                         </AlertDescription>
                     </Alert>
                 );

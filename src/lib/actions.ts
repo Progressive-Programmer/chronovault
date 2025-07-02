@@ -13,8 +13,13 @@ const notConfiguredError = "Firebase is not configured. Please check your .env f
  */
 export async function createUserDocument(uid: string, email: string, salt: string): Promise<void> {
     if (!db) throw new Error(notConfiguredError);
-    const userRef = doc(db, "users", uid);
-    await setDoc(userRef, { uid, email, salt });
+    try {
+        const userRef = doc(db, "users", uid);
+        await setDoc(userRef, { uid, email, salt });
+    } catch(e) {
+        console.error("Error creating user document: ", e);
+        throw new Error("Could not create user document.");
+    }
 }
 
 /**
@@ -22,12 +27,17 @@ export async function createUserDocument(uid: string, email: string, salt: strin
  */
 export async function getUserDocument(uid: string): Promise<UserDoc | null> {
     if (!db) throw new Error(notConfiguredError);
-    const userRef = doc(db, "users", uid);
-    const docSnap = await getDoc(userRef);
-    if (docSnap.exists()) {
-        return docSnap.data() as UserDoc;
+    try {
+        const userRef = doc(db, "users", uid);
+        const docSnap = await getDoc(userRef);
+        if (docSnap.exists()) {
+            return docSnap.data() as UserDoc;
+        }
+        return null;
+    } catch(e) {
+        console.error("Error fetching user document: ", e);
+        throw new Error("Could not fetch user document.");
     }
-    return null;
 }
 
 
@@ -50,7 +60,6 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
         return docRef.id;
     } catch (e) {
         console.error("Error adding document: ", e);
-        // In a real app, you'd want more robust error handling and logging.
         throw new Error("Could not create capsule.");
     }
 }
@@ -60,22 +69,27 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
  */
 export async function getCapsulesForUser(userId: string): Promise<SerializableCapsuleDoc[]> {
     if (!db) throw new Error(notConfiguredError);
-    const q = query(collection(db, "capsules"), where("userId", "==", userId));
-    const querySnapshot = await getDocs(q);
-    const capsules: SerializableCapsuleDoc[] = [];
-    querySnapshot.forEach((doc) => {
-        const data = doc.data() as CapsuleDoc;
-        const { openDate, createdAt, ...rest } = data;
-        capsules.push({
-            id: doc.id,
-            ...rest,
-            openDate: openDate.toDate().toISOString(),
-            createdAt: createdAt.toDate().toISOString(),
+    try {
+        const q = query(collection(db, "capsules"), where("userId", "==", userId));
+        const querySnapshot = await getDocs(q);
+        const capsules: SerializableCapsuleDoc[] = [];
+        querySnapshot.forEach((doc) => {
+            const data = doc.data() as CapsuleDoc;
+            const { openDate, createdAt, ...rest } = data;
+            capsules.push({
+                id: doc.id,
+                ...rest,
+                openDate: openDate.toDate().toISOString(),
+                createdAt: createdAt.toDate().toISOString(),
+            });
         });
-    });
-    // Sort by open date, further in the future first
-    capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
-    return capsules;
+        // Sort by open date, further in the future first
+        capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
+        return capsules;
+    } catch (e) {
+        console.error("Error fetching user capsules: ", e);
+        throw new Error("Could not fetch user capsules.");
+    }
 }
 
 /**
@@ -94,6 +108,6 @@ export async function getCapsuleById(id: string): Promise<(CapsuleDoc & { id: st
         }
     } catch (error) {
         console.error("Error fetching document: ", error);
-        return null;
+        throw new Error("Could not fetch capsule.");
     }
 }

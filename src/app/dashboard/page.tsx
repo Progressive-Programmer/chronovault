@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CapsuleList } from "@/components/capsule-list";
 import type { Capsule, CapsuleStatus, SerializableCapsuleDoc } from "@/types/capsule";
-import { PlusCircle, Clock, Gift, Archive, Loader2 } from "lucide-react";
+import { PlusCircle, Clock, Gift, Archive, Loader2, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { getCapsulesForUser } from "@/lib/actions";
 import { useAuth } from '@/context/auth-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
     const openDate = new Date(doc.openDate);
@@ -40,14 +41,22 @@ export default function DashboardPage() {
     const { user } = useAuth();
     const [capsules, setCapsules] = useState<Capsule[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         async function fetchCapsules() {
             if (user) {
                 setIsLoading(true);
-                const capsuleDocs = await getCapsulesForUser(user.uid);
-                setCapsules(capsuleDocs.map(mapDocToCapsule));
-                setIsLoading(false);
+                setError(null);
+                try {
+                    const capsuleDocs = await getCapsulesForUser(user.uid);
+                    setCapsules(capsuleDocs.map(mapDocToCapsule));
+                } catch (err) {
+                    console.error("Failed to fetch capsules:", err);
+                    setError("We couldn't load your capsules. Please try refreshing the page.");
+                } finally {
+                    setIsLoading(false);
+                }
             }
         }
         fetchCapsules();
@@ -55,7 +64,7 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div className="flex h-full items-center justify-center">
+            <div className="flex h-full items-center justify-center p-8">
                 <Loader2 className="size-12 animate-spin text-primary" />
             </div>
         )
@@ -79,6 +88,16 @@ export default function DashboardPage() {
             </Link>
             </Button>
         </header>
+
+        {error && (
+             <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Error Loading Capsules</AlertTitle>
+                <AlertDescription>
+                    {error}
+                </AlertDescription>
+            </Alert>
+        )}
 
         <Tabs defaultValue="upcoming" className="w-full">
             <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
