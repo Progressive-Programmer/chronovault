@@ -12,8 +12,6 @@ import {
   Loader2,
   MapPin,
   Lightbulb,
-  Copy,
-  Check,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -53,13 +51,8 @@ import { cn } from "@/lib/utils";
 import { suggestCapsuleLocation, SuggestCapsuleLocationOutput } from "@/ai/flows/capsule-location-suggestor";
 import { useToast } from "@/hooks/use-toast";
 import { createCapsule } from "@/lib/actions";
-import { generateMessageKey, encryptMessage, deriveMasterKey, wrapKey, exportKeyToString } from "@/lib/crypto";
-
-// For demonstration purposes, we're using a hardcoded password and salt.
-// In a real app, the user would enter their password upon login, and the salt
-// would be fetched from their user profile in the database.
-const MOCK_USER_PASSWORD = "my-super-secret-password-123";
-const MOCK_USER_SALT = "AAECAwQFBgcICQoLDA0ODw=="; // A Base64 encoded 16-byte salt.
+import { generateMessageKey, encryptMessage, wrapKey, exportKeyToString } from "@/lib/crypto";
+import { useAuth } from "@/context/auth-context";
 
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long.").max(100),
@@ -72,13 +65,9 @@ const formSchema = z.object({
     required_error: "An opening date is required.",
   }),
 }).refine(data => {
-    if (data.visibility === 'private') {
-        return !!data.recipientEmail;
-    }
+    // For this simplified app, private capsules are for the user themselves, so no recipient email is needed.
+    // In a real app, you would check for a recipient email if sending to others.
     return true;
-}, {
-    message: "Recipient email is required for private capsules.",
-    path: ["recipientEmail"],
 });
 
 
@@ -88,6 +77,7 @@ export function CreateCapsuleForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const { toast } = useToast();
+  const { user, masterKey } = useAuth();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -128,40 +118,36 @@ export function CreateCapsuleForm() {
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!user || (!masterKey && values.visibility === 'private')) {
+        toast({ title: "Authentication Error", description: "You must be logged in and have a master key available to create a private capsule.", variant: "destructive" });
+        return;
+    }
+
     setIsSubmitting(true);
     try {
-      // 1. Generate a new key for this specific message
       const messageKey = await generateMessageKey();
-      
-      // 2. Encrypt the message content
       const { iv: messageIV, encrypted: encryptedMessage } = await encryptMessage(values.message, messageKey);
 
-      // 3. Prepare common data for Firestore
       let capsuleData: any = {
         title: values.title,
         openDate: values.openDate,
         visibility: values.visibility,
-        recipientEmail: values.recipientEmail || "",
+        recipientEmail: user.email, // Private capsules are to self in this version
         messageIV,
         encryptedMessage,
       };
 
-      // 4. Handle key storage based on visibility
       if (values.visibility === 'private') {
-        // For private capsules, wrap the key with the master key derived from the password
-        const masterKey = await deriveMasterKey(MOCK_USER_PASSWORD, MOCK_USER_SALT);
+        if (!masterKey) throw new Error("Master key is not available.");
         const { iv: keyIV, wrappedKey } = await wrapKey(messageKey, masterKey);
         capsuleData.keyIV = keyIV;
         capsuleData.wrappedKey = wrappedKey;
       } else {
-        // For public capsules, store the key directly (it's protected by Firestore rules until opening)
         capsuleData.key = await exportKeyToString(messageKey);
       }
 
-      // 5. Save to Firestore via Server Action
-      await createCapsule(capsuleData);
+      await createCapsule(capsuleData, user.uid);
 
-      // 6. Show success and reset form
       setShowSuccessModal(true);
       form.reset();
       setAiSuggestion(null);
@@ -315,7 +301,7 @@ export function CreateCapsuleForm() {
                             <RadioGroupItem value="private" />
                           </FormControl>
                           <FormLabel className="font-normal">
-                            Private (only you and the recipient can open)
+                            Private (only you can open)
                           </FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-3 space-y-0">
@@ -332,21 +318,6 @@ export function CreateCapsuleForm() {
                   </FormItem>
                 )}
               />
-              {form.watch("visibility") === 'private' && (
-                  <FormField
-                  control={form.control}
-                  name="recipientEmail"
-                  render={({ field }) => (
-                      <FormItem>
-                      <FormLabel>Recipient's Email</FormLabel>
-                      <FormControl>
-                          <Input placeholder="friend@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                      </FormItem>
-                  )}
-                  />
-              )}
             </CardContent>
           </Card>
           
@@ -364,7 +335,7 @@ export function CreateCapsuleForm() {
           <AlertDialogHeader>
             <AlertDialogTitle>Capsule Sealed & Secured!</AlertDialogTitle>
             <AlertDialogDescription>
-              Your time capsule is now sealed and securely stored. You can view it from your dashboard once the opening date arrives.
+              Your time capsule is now sealed and securely stored. You can view it from your dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

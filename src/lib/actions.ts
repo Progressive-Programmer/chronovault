@@ -1,11 +1,31 @@
 'use server';
 
 import { db } from "@/lib/firebase";
-import { CapsuleDoc } from "@/types/capsule";
-import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp } from "firebase/firestore";
+import type { CapsuleDoc } from "@/types/capsule";
+import type { UserDoc } from "@/types/user";
+import { addDoc, collection, getDocs, query, where, getDoc, doc, Timestamp, setDoc } from "firebase/firestore";
 
-// In a real app, this would come from an authentication session (e.g., Firebase Auth, NextAuth.js).
-const MOCK_USER_ID = "user_anonymous_123";
+/**
+ * Creates the user document in Firestore, storing their salt.
+ * This is called right after a user signs up.
+ */
+export async function createUserDocument(uid: string, email: string, salt: string): Promise<void> {
+    const userRef = doc(db, "users", uid);
+    await setDoc(userRef, { uid, email, salt });
+}
+
+/**
+ * Fetches the user's document, which contains their salt.
+ */
+export async function getUserDocument(uid: string): Promise<UserDoc | null> {
+    const userRef = doc(db, "users", uid);
+    const docSnap = await getDoc(userRef);
+    if (docSnap.exists()) {
+        return docSnap.data() as UserDoc;
+    }
+    return null;
+}
+
 
 // NOTE: This type is now different. It accepts key materials based on visibility.
 type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate'> & { openDate: Date };
@@ -14,11 +34,11 @@ type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate'> 
 /**
  * Creates a new time capsule document in Firestore.
  */
-export async function createCapsule(data: CreateCapsuleInput): Promise<string> {
+export async function createCapsule(data: CreateCapsuleInput, userId: string): Promise<string> {
     try {
         const docRef = await addDoc(collection(db, "capsules"), {
             ...data,
-            userId: MOCK_USER_ID,
+            userId: userId,
             openDate: Timestamp.fromDate(data.openDate),
             createdAt: Timestamp.now(),
         });
@@ -31,10 +51,10 @@ export async function createCapsule(data: CreateCapsuleInput): Promise<string> {
 }
 
 /**
- * Fetches all capsules for the mock user.
+ * Fetches all capsules for a given user.
  */
-export async function getCapsulesForUser(): Promise<(CapsuleDoc & { id: string })[]> {
-    const q = query(collection(db, "capsules"), where("userId", "==", MOCK_USER_ID));
+export async function getCapsulesForUser(userId: string): Promise<(CapsuleDoc & { id: string })[]> {
+    const q = query(collection(db, "capsules"), where("userId", "==", userId));
     const querySnapshot = await getDocs(q);
     const capsules: (CapsuleDoc & { id: string })[] = [];
     querySnapshot.forEach((doc) => {
@@ -54,8 +74,6 @@ export async function getCapsuleById(id: string): Promise<(CapsuleDoc & { id: st
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-            // In a real app, you would have Firestore Security Rules to check if the openDate has passed
-            // for public capsules, or if the requester is the correct user for private capsules.
             return { id: docSnap.id, ...docSnap.data() as CapsuleDoc };
         } else {
             return null;

@@ -2,20 +2,15 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { SerializableCapsuleDoc } from '@/types/capsule';
-import { decryptMessage, deriveMasterKey, unwrapKey, importKeyFromString } from '@/lib/crypto';
+import { decryptMessage, unwrapKey, importKeyFromString } from '@/lib/crypto';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, Lock, AlertTriangle, Unlock } from 'lucide-react';
-
-// For demonstration purposes, we're using a hardcoded password and salt.
-// In a real app, the user would enter their password upon login, and the salt
-// would be fetched from their user profile in the database.
-const MOCK_USER_PASSWORD = "my-super-secret-password-123";
-const MOCK_USER_SALT = "AAECAwQFBgcICQoLDA0ODw=="; // A Base64 encoded 16-byte salt.
+import { useAuth } from '@/context/auth-context';
 
 enum ViewState {
-  LOADING,
+  AWAITING_KEY,
   LOCKED,
   DECRYPTING,
   UNSEALED,
@@ -42,10 +37,10 @@ function Countdown({ openDate }: { openDate: Date }) {
     return <span className="font-mono">{timeLeft}</span>;
 }
 
-
 export default function ViewCapsuleClient({ capsuleData }: { capsuleData: SerializableCapsuleDoc }) {
-    const [viewState, setViewState] = useState<ViewState>(ViewState.LOADING);
+    const [viewState, setViewState] = useState<ViewState>(ViewState.AWAITING_KEY);
     const [decryptedMessage, setDecryptedMessage] = useState('');
+    const { masterKey, user, loading: authLoading } = useAuth();
 
     const openDate = useMemo(() => new Date(capsuleData.openDate), [capsuleData.openDate]);
     const isReadyToOpen = useMemo(() => new Date() >= openDate, [openDate]);
@@ -57,22 +52,27 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                 let messageKey: CryptoKey;
 
                 if (capsuleData.visibility === 'private') {
+                    if (!user) {
+                        setViewState(ViewState.ERROR);
+                        console.error("User not logged in for private capsule.");
+                        return;
+                    }
+                     if (!masterKey) {
+                        setViewState(ViewState.AWAITING_KEY);
+                        console.error("Master key not available for private capsule. User might need to log in again.");
+                        return;
+                    }
                     if (!capsuleData.wrappedKey || !capsuleData.keyIV) {
                         throw new Error("Missing key material for private capsule.");
                     }
-                    // 1. Derive master key from password
-                    const masterKey = await deriveMasterKey(MOCK_USER_PASSWORD, MOCK_USER_SALT);
-                    // 2. Unwrap the message key
                     messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
                 } else { // public
                     if (!capsuleData.key) {
                         throw new Error("Missing key for public capsule.");
                     }
-                    // For public capsules, the key is stored directly.
                     messageKey = await importKeyFromString(capsuleData.key);
                 }
                 
-                // 3. Decrypt the message
                 const message = await decryptMessage(capsuleData.encryptedMessage, capsuleData.messageIV, messageKey);
                 setDecryptedMessage(message);
                 setViewState(ViewState.UNSEALED);
@@ -83,6 +83,11 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
             }
         };
 
+        if (authLoading) {
+            setViewState(ViewState.AWAITING_KEY);
+            return;
+        }
+
         if (!isReadyToOpen) {
             setViewState(ViewState.LOCKED);
             return;
@@ -90,12 +95,12 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
 
         handleDecrypt();
 
-    }, [isReadyToOpen, capsuleData]);
+    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading]);
 
     const renderContent = () => {
         switch (viewState) {
-            case ViewState.LOADING:
-                return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /></div>;
+            case ViewState.AWAITING_KEY:
+                return <div className="flex justify-center items-center p-8"><Loader2 className="animate-spin" /> <span className="ml-2">Verifying credentials...</span></div>;
 
             case ViewState.LOCKED:
                 return (
@@ -122,7 +127,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Decryption Failed</AlertTitle>
                         <AlertDescription>
-                            We couldn't decrypt this message. This can happen if the data is corrupt or if there's an issue with the encryption key. In a real app with user accounts, this might mean an incorrect password was used.
+                            We couldn&apos;t decrypt this message. This can happen if the data is corrupt or if there&apos;s an issue with the encryption key. For private capsules, this can mean your session expired; try logging out and back in.
                         </AlertDescription>
                     </Alert>
                 );
@@ -140,7 +145,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>An Unexpected Error Occurred</AlertTitle>
                         <AlertDescription>
-                            Something went wrong while trying to display this capsule. Please try again later.
+                            Something went wrong while trying to display this capsule. You may need to log in again.
                         </AlertDescription>
                     </Alert>
                 );

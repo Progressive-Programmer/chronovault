@@ -1,64 +1,15 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ArrowRight, Lock, Send, Share2, Menu } from 'lucide-react';
+import { ArrowRight, Lock, Send, Share2 } from 'lucide-react';
 import { Logo } from '@/components/icons/logo';
 import Image from 'next/image';
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
+import { LandingNav } from '@/components/layout/landing-nav';
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen bg-background">
-      <header className="container mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Logo className="size-8 text-primary" />
-          <span className="text-xl font-bold font-headline text-foreground">ChronoVault</span>
-        </Link>
-        <nav className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" asChild>
-            <Link href="/public">Public Capsules</Link>
-          </Button>
-          <Button variant="ghost" asChild>
-            <Link href="/dashboard">Log In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/create">Get Started <ArrowRight className="ml-2" /></Link>
-          </Button>
-        </nav>
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon">
-                <Menu />
-                <span className="sr-only">Open menu</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-                <div className="flex flex-col gap-4 p-4">
-                     <Link href="/" className="flex items-center gap-2 mb-4">
-                        <Logo className="size-8 text-primary" />
-                        <span className="text-xl font-bold font-headline text-foreground">ChronoVault</span>
-                    </Link>
-                    <SheetClose asChild>
-                        <Button variant="ghost" className="justify-start" asChild>
-                            <Link href="/public">Public Capsules</Link>
-                        </Button>
-                    </SheetClose>
-                    <SheetClose asChild>
-                        <Button variant="ghost" className="justify-start" asChild>
-                            <Link href="/dashboard">Log In</Link>
-                        </Button>
-                    </SheetClose>
-                    <SheetClose asChild>
-                        <Button className="w-full justify-center" asChild>
-                            <Link href="/create">Get Started <ArrowRight className="ml-2" /></Link>
-                        </Button>
-                    </SheetClose>
-                </div>
-            </SheetContent>
-          </Sheet>
-        </div>
-      </header>
+      <LandingNav />
 
       <main className="flex-grow">
         <section className="py-20 md:py-32">

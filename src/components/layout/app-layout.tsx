@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   SidebarProvider,
   Sidebar,
@@ -23,7 +23,10 @@ import {
   Globe,
   Settings,
   LogOut,
+  Loader2,
 } from "lucide-react";
+import { useAuth } from "@/context/auth-context";
+import { useEffect } from "react";
 
 const menuItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,12 +35,32 @@ const menuItems = [
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
+const protectedRoutes = ["/dashboard", "/create", "/settings"];
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const auth = useAuth();
+
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
   const isLandingPage = pathname === "/";
 
-  if (isLandingPage) {
+  useEffect(() => {
+    if (!auth.loading && !auth.user && protectedRoutes.some(path => pathname.startsWith(path))) {
+      router.push('/login');
+    }
+  }, [auth.loading, auth.user, pathname, router]);
+
+  if (isLandingPage || isAuthPage) {
     return <>{children}</>;
+  }
+
+  if (auth.loading) {
+    return (
+        <div className="flex h-screen items-center justify-center">
+            <Loader2 className="size-12 animate-spin text-primary" />
+        </div>
+    )
   }
 
   return (
@@ -73,14 +96,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
              <div className="flex items-center gap-2 group-data-[collapsible=icon]:hidden">
                 <Avatar className="size-8">
                     <AvatarImage src="https://placehold.co/40x40.png" alt="User" data-ai-hint="user avatar" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarFallback>{auth.user?.email?.[0].toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col">
-                    <span className="text-sm font-semibold">User</span>
-                    <span className="text-xs text-muted-foreground">user@email.com</span>
+                    <span className="text-sm font-semibold truncate">{auth.user?.email}</span>
                 </div>
              </div>
-             <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:w-full">
+             <Button variant="ghost" size="icon" className="group-data-[collapsible=icon]:w-full" onClick={auth.signOut}>
                 <LogOut />
              </Button>
           </div>
