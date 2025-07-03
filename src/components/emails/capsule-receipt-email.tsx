@@ -6,9 +6,9 @@ import {
   Container,
   Heading,
   Text,
-  Link,
   Button,
-  Tailwind
+  Tailwind,
+  Section,
 } from '@react-email/components';
 
 interface CapsuleReceiptEmailProps {
@@ -23,31 +23,50 @@ export const CapsuleReceiptEmail: React.FC<Readonly<CapsuleReceiptEmailProps>> =
   <Html>
     <Head />
     <Tailwind>
-        <Body className="bg-gray-100 font-sans">
+        <Body className="bg-gray-100 font-sans text-gray-800">
             <Container className="bg-white border border-gray-200 rounded-lg shadow-sm my-10 mx-auto p-8 max-w-xl">
-                <Heading className="text-2xl font-bold text-gray-800">ChronoVault</Heading>
-                <Heading className="text-xl font-semibold text-gray-700 mt-6">You've Received a Time Capsule!</Heading>
-                <Text className="text-base text-gray-600 leading-6">
+                
+                <Section className="text-center mb-8">
+                   <Text className="text-3xl font-bold font-headline text-primary">ChronoVault</Text>
+                   <Text className="text-sm text-muted-foreground">A Message Sealed in Time</Text>
+                </Section>
+                
+                <Heading className="text-2xl font-semibold text-center mt-6">A Message From the Past Awaits You!</Heading>
+                
+                <Text className="text-base text-gray-600 leading-relaxed mt-6">
                     Hello,
                 </Text>
-                <Text className="text-base text-gray-600 leading-6">
-                    A time capsule titled "<strong>{capsuleTitle}</strong>" has been sealed and sent to you through ChronoVault.
+                
+                <Text className="text-base text-gray-600 leading-relaxed">
+                    Someone has sent you a digital time capsule named <strong>&quot;{capsuleTitle}&quot;</strong>. They've sealed a memory, a thought, or a dream, meant only for your eyes on a specific day in the future.
                 </Text>
-                <Text className="text-base text-gray-600 leading-6">
-                    It is scheduled to be opened on a future date. When it's ready, you'll be able to access it through your ChronoVault dashboard.
+
+                <Text className="text-base text-gray-600 leading-relaxed mt-4">
+                    <strong>What is ChronoVault?</strong> It's a place to preserve today's moments for tomorrow. It's about connection, patience, and the magic of rediscovery.
                 </Text>
-                <Button 
-                    href="https://chronovault-app.web.app/login"
-                    className="bg-[#3F51B5] text-white font-semibold rounded-md px-6 py-3 mt-6"
-                >
-                    Visit Your Dashboard
-                </Button>
-                <Text className="text-sm text-gray-500 mt-8">
-                    If you don't have an account yet, you can sign up with this email address ({recipientEmail}) to be ready for the big day.
+
+                <Section className="text-center mt-8 mb-8">
+                  <Button 
+                      href={`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/login`}
+                      className="bg-primary text-primary-foreground font-semibold rounded-md px-6 py-3"
+                  >
+                      Prepare for the Future
+                  </Button>
+                </Section>
+
+                <Text className="text-sm text-gray-500 leading-relaxed">
+                    To read your message when it's unsealed, simply create a free ChronoVault account using this email address: <strong>{recipientEmail}</strong>. Your capsule will be waiting for you safely in your vault.
                 </Text>
-                <Text className="text-sm text-gray-500">
-                    — The ChronoVault Team
-                </Text>
+                
+                <Section className="mt-8 border-t border-gray-200 pt-6 text-center">
+                    <Text className="text-xs text-gray-400">
+                        This message is a bridge through time.
+                    </Text>
+                     <Text className="text-xs text-gray-400">
+                        The Keepers of Time at ChronoVault
+                    </Text>
+                </Section>
+
             </Container>
         </Body>
     </Tailwind>
