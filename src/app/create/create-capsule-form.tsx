@@ -283,16 +283,16 @@ export function CreateCapsuleForm() {
                           <Button
                             variant={"outline"}
                             className={cn(
-                              "w-[240px] pl-3 text-left font-normal",
+                              "w-[280px] justify-start text-left font-normal",
                               !field.value && "text-muted-foreground"
                             )}
                           >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
                             {field.value ? (
                               format(field.value, "PPP")
                             ) : (
                               <span>Pick a date</span>
                             )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
@@ -305,6 +305,9 @@ export function CreateCapsuleForm() {
                             date < new Date(new Date().setDate(new Date().getDate() + 1))
                           }
                           initialFocus
+                          captionLayout="dropdown-buttons"
+                          fromYear={new Date().getFullYear()}
+                          toYear={new Date().getFullYear() + 100}
                         />
                       </PopoverContent>
                     </Popover>
