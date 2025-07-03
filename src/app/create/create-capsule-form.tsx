@@ -158,6 +158,21 @@ export function CreateCapsuleForm() {
       }
 
       await createCapsule(capsuleData, user.uid);
+      
+      if (values.visibility === 'private-recipient' && values.recipientEmail) {
+          try {
+              await fetch('/api/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      recipientEmail: values.recipientEmail,
+                      capsuleTitle: values.title
+                  })
+              });
+          } catch (emailError) {
+              console.error("Failed to send notification email:", emailError);
+          }
+      }
 
       setShowSuccessModal(true);
       form.reset();
