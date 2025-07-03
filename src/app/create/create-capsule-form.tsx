@@ -58,6 +58,9 @@ import { useAuth } from "@/context/auth-context";
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long.").max(100),
   message: z.string().min(20, "Your message is too short! Add a bit more detail."),
+  openDate: z.date({
+    required_error: "An opening date is required.",
+  }),
   visibility: z.enum(["private-self", "private-recipient", "public"], {
     required_error: "You need to select a visibility setting.",
   }),
