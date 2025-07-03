@@ -59,7 +59,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                 
                 messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
             } else if (capsuleData.visibility === 'private-recipient') {
-                 if (user?.uid !== capsuleData.recipientId) throw new Error("Permission denied: Not the recipient of this capsule.");
+                 if (user?.email !== capsuleData.recipientEmail) throw new Error("Permission denied: Not the intended recipient of this capsule.");
                  if (!capsuleData.key) throw new Error("Missing key for recipient-capsule.");
 
                  messageKey = await importKeyFromString(capsuleData.key);

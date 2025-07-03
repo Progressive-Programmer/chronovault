@@ -92,9 +92,11 @@ export async function createCapsule(data: CreateCapsuleInput, userId: string): P
 
         if (data.visibility === 'private-recipient') {
             if (!data.recipientEmail) throw new Error("Recipient email is required for this capsule type.");
+            // Find user to link their ID if they exist, but don't fail if not found.
             const recipientUser = await getUserByEmail(data.recipientEmail);
-            if (!recipientUser) throw new Error(`No user found with the email: ${data.recipientEmail}. Please ensure they have a ChronoVault account.`);
-            finalData.recipientId = recipientUser.uid;
+            if (recipientUser) {
+                finalData.recipientId = recipientUser.uid;
+            }
         } else if (data.visibility === 'private-self') {
             finalData.recipientId = userId;
         }

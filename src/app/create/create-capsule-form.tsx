@@ -62,9 +62,6 @@ const formSchema = z.object({
     required_error: "You need to select a visibility setting.",
   }),
   recipientEmail: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
-  openDate: z.date({
-    required_error: "An opening date is required.",
-  }),
 }).refine(data => {
     if (data.visibility === 'private-recipient') {
         return !!data.recipientEmail && z.string().email().safeParse(data.recipientEmail).success;
@@ -368,7 +365,7 @@ export function CreateCapsuleForm() {
                         <Input placeholder="friend@example.com" {...field} />
                       </FormControl>
                       <FormDescription>
-                        The recipient must have a ChronoVault account to open the capsule.
+                        The recipient will be notified by email. They can sign up to view the capsule.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
