@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,9 +41,9 @@ export function CapsuleCard({ capsule }: { capsule: Capsule }) {
       </div>
       <Card className="w-full transition-all hover:shadow-md">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="flex-grow">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
                 <Badge variant={variant as any}>{label}</Badge>
                 <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <RecipientIcon className="size-3.5" />
@@ -54,11 +55,11 @@ export function CapsuleCard({ capsule }: { capsule: Capsule }) {
                 {isPast ? "Opened on" : "Opens on"} {format(openDate, "MMMM d, yyyy")} ({dateText})
               </p>
             </div>
-            <div className="flex items-center shrink-0">
+            <div className="flex items-center shrink-0 w-full sm:w-auto">
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button asChild variant={status === 'ready' ? 'default' : 'outline'} disabled={status === 'sealed'}>
+                    <Button asChild className="w-full sm:w-auto" variant={status === 'ready' ? 'default' : 'outline'} disabled={status === 'sealed'}>
                         <Link href={`/capsules/${id}`}>
                             {status === 'ready' && "Unseal Capsule"}
                             {status === 'opened' && "View Content"}
