@@ -305,7 +305,6 @@ export function CreateCapsuleForm() {
                             date < new Date(new Date().setDate(new Date().getDate() + 1))
                           }
                           initialFocus
-                          captionLayout="dropdown-buttons"
                           fromYear={new Date().getFullYear()}
                           toYear={new Date().getFullYear() + 100}
                         />

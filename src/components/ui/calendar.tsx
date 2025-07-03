@@ -2,11 +2,10 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, type DropdownProps } from "react-day-picker"
+import { DayPicker, type CaptionProps, useDayPicker, useNavigation } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -14,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ScrollArea } from "./scroll-area"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -31,14 +31,9 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
-        nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-        ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        caption_label: "hidden", // Hide the default caption label
+        nav_button_previous: "hidden", // Hide the default nav buttons
+        nav_button_next: "hidden",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
@@ -62,48 +57,88 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Dropdown: ({ value, onChange, children, ...props }: DropdownProps) => {
-          const options = React.Children.toArray(
-            children
-          ) as React.ReactElement<React.HTMLProps<HTMLOptionElement>>[]
-          const selected = options.find((child) => child.props.value === value)
-          const handleChange = (value: string) => {
-            const changeEvent = {
-              target: { value },
-            } as React.ChangeEvent<HTMLSelectElement>
-            onChange?.(changeEvent)
+        Caption: ({ displayMonth }: CaptionProps) => {
+          const { fromDate, toDate } = useDayPicker()
+          const { goToMonth, nextMonth, previousMonth } = useNavigation()
+          
+          const fromYear = fromDate?.getFullYear()
+          const toYear = toDate?.getFullYear()
+
+          const yearOptions: number[] = []
+          if (fromYear && toYear) {
+            for (let i = fromYear; i <= toYear; i++) {
+              yearOptions.push(i)
+            }
           }
+
+          const monthOptions: {label: string, value: number}[] = Array.from({ length: 12 }, (_, i) => ({
+            value: i,
+            label: new Date(2000, i).toLocaleString("default", { month: "long" }),
+          }))
+
           return (
-            <Select
-              value={value?.toString()}
-              onValueChange={(value) => {
-                handleChange(value)
-              }}
-            >
-              <SelectTrigger className="pr-1.5 focus:ring-0">
-                <SelectValue>{selected?.props?.children}</SelectValue>
-              </SelectTrigger>
-              <SelectContent position="popper">
-                <ScrollArea className="h-80">
-                  {options.map((option, id: number) => (
-                    <SelectItem
-                      key={`${option.props.value}-${id}`}
-                      value={option.props.value?.toString() ?? ""}
+             <div className="flex items-center justify-between gap-1 w-full">
+                <Button
+                    aria-label="Go to previous month"
+                    variant="outline"
+                    className="h-7 w-7 p-0"
+                    onClick={() => previousMonth && goToMonth(previousMonth)}
+                    disabled={!previousMonth}
+                >
+                    <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1.5 flex-grow justify-center">
+                    <Select
+                        value={String(displayMonth.getMonth())}
+                        onValueChange={(value) => {
+                            goToMonth(new Date(displayMonth.getFullYear(), Number(value)))
+                        }}
                     >
-                      {option.props.children}
-                    </SelectItem>
-                  ))}
-                </ScrollArea>
-              </SelectContent>
-            </Select>
+                        <SelectTrigger className="w-[60%] focus:ring-0">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                             {monthOptions.map((option) => (
+                                <SelectItem key={option.value} value={String(option.value)}>
+                                    {option.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     <Select
+                        value={String(displayMonth.getFullYear())}
+                        onValueChange={(value) => {
+                            goToMonth(new Date(Number(value), displayMonth.getMonth()))
+                        }}
+                    >
+                        <SelectTrigger className="w-[40%] focus:ring-0">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <ScrollArea className="h-80">
+                                {yearOptions.map((year) => (
+                                    <SelectItem key={year} value={String(year)}>
+                                        {year}
+                                    </SelectItem>
+                                ))}
+                            </ScrollArea>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Button
+                     aria-label="Go to next month"
+                     variant="outline"
+                     className="h-7 w-7 p-0"
+                     onClick={() => nextMonth && goToMonth(nextMonth)}
+                     disabled={!nextMonth}
+                >
+                    <ChevronRight className="h-4 w-4" />
+                </Button>
+            </div>
           )
         },
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-        ),
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" {...props} />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" {...props} />,
       }}
       {...props}
     />
