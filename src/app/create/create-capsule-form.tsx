@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -161,7 +162,7 @@ export function CreateCapsuleForm() {
       
       if (values.visibility === 'private-recipient' && values.recipientEmail) {
           try {
-              await fetch('/api/send', {
+              const res = await fetch('/api/send', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
@@ -169,6 +170,9 @@ export function CreateCapsuleForm() {
                       capsuleTitle: values.title
                   })
               });
+              if (!res.ok) {
+                console.error("Failed to send notification email, but capsule was created.");
+              }
           } catch (emailError) {
               console.error("Failed to send notification email:", emailError);
           }
@@ -283,7 +287,7 @@ export function CreateCapsuleForm() {
                           <Button
                             variant={"outline"}
                             className={cn(
-                              "w-[280px] justify-start text-left font-normal",
+                              "w-full sm:w-[280px] justify-start text-left font-normal",
                               !field.value && "text-muted-foreground"
                             )}
                           >
@@ -370,7 +374,7 @@ export function CreateCapsuleForm() {
                         <Input placeholder="friend@example.com" {...field} />
                       </FormControl>
                       <FormDescription>
-                        The recipient will be notified by email. They can sign up to view the capsule.
+                        A notification will be sent to this email. If they don't have an account, the capsule will wait for them.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
