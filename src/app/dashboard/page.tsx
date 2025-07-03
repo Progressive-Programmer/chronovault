@@ -28,9 +28,11 @@ function mapDocToCapsule(doc: SerializableCapsuleDoc, currentUserId: string): Ca
         recipient = 'You';
     } else if (doc.visibility === 'private-recipient') {
         if (doc.userId === currentUserId) {
-            recipient = `To: ${doc.recipientEmail}`; // Sent by you
+            // Capsule sent by the current user to someone else
+            recipient = doc.recipientEmail || 'Unknown Recipient';
         } else {
-            recipient = `From: (Hidden)`; // Received by you - we could fetch sender name later
+            // Capsule received by the current user from someone else
+            recipient = 'You';
         }
     }
     
