@@ -98,10 +98,19 @@ export default function DashboardPage() {
 
         return (
             <Tabs defaultValue="upcoming" className="w-full">
-                <TabsList className="grid w-full grid-cols-1 sm:w-auto sm:grid-cols-3">
-                    <TabsTrigger value="upcoming"><Clock className="mr-2" /> Upcoming</TabsTrigger>
-                    <TabsTrigger value="ready"><Gift className="mr-2" /> Ready to Unseal</TabsTrigger>
-                    <TabsTrigger value="archived"><Archive className="mr-2"/> Archived</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="upcoming" className="gap-2">
+                        <Clock className="size-4" />
+                        <span className="hidden sm:inline">Upcoming</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="ready" className="gap-2">
+                        <Gift className="size-4" />
+                        <span className="hidden sm:inline">Ready to Unseal</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="archived" className="gap-2">
+                        <Archive className="size-4"/>
+                        <span className="hidden sm:inline">Archived</span>
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="upcoming" className="mt-6">
                     <CapsuleList capsules={upcomingCapsules} emptyMessage="No upcoming capsules sealed." />
