@@ -13,6 +13,7 @@ import {
   SidebarInset,
   SidebarFooter,
   SidebarSeparator,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
+            <Link href="/dashboard" className="flex items-center gap-2 font-bold font-headline">
+                <Logo className="size-6 text-primary" />
+                <span>ChronoVault</span>
+            </Link>
+            <SidebarTrigger />
+        </header>
         {children}
       </SidebarInset>
     </SidebarProvider>
