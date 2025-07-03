@@ -11,7 +11,7 @@ import { getCapsulesForUser } from "@/lib/actions";
 import { useAuth } from '@/context/auth-context';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
+function mapDocToCapsule(doc: SerializableCapsuleDoc, currentUserId: string): Capsule {
     const openDate = new Date(doc.openDate);
     const now = new Date();
 
@@ -22,10 +22,16 @@ function mapDocToCapsule(doc: SerializableCapsuleDoc): Capsule {
     }
 
     let recipient = 'Public';
-    if (doc.visibility === 'private' && doc.recipientEmail) {
-        recipient = doc.recipientEmail;
-    } else if (doc.visibility === 'private') {
+    if (doc.visibility === 'public') {
+        recipient = 'Public';
+    } else if (doc.visibility === 'private-self') {
         recipient = 'You';
+    } else if (doc.visibility === 'private-recipient') {
+        if (doc.userId === currentUserId) {
+            recipient = `To: ${doc.recipientEmail}`; // Sent by you
+        } else {
+            recipient = `From: (Hidden)`; // Received by you - we could fetch sender name later
+        }
     }
     
     return {
@@ -51,7 +57,7 @@ export default function DashboardPage() {
                 setError(null);
                 try {
                     const capsuleDocs = await getCapsulesForUser(user.uid);
-                    setCapsules(capsuleDocs.map(mapDocToCapsule));
+                    setCapsules(capsuleDocs.map(doc => mapDocToCapsule(doc, user.uid)));
                 } catch (err) {
                     console.error("Failed to fetch capsules:", err);
                     setError("We couldn't load your capsules. Please try refreshing the page.");

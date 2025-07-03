@@ -58,7 +58,7 @@ import { useAuth } from "@/context/auth-context";
 const formSchema = z.object({
   title: z.string().min(5, "Title must be at least 5 characters long.").max(100),
   message: z.string().min(20, "Your message is too short! Add a bit more detail."),
-  visibility: z.enum(["private", "public"], {
+  visibility: z.enum(["private-self", "private-recipient", "public"], {
     required_error: "You need to select a visibility setting.",
   }),
   recipientEmail: z.string().email("Please enter a valid email address.").optional().or(z.literal('')),
@@ -66,9 +66,13 @@ const formSchema = z.object({
     required_error: "An opening date is required.",
   }),
 }).refine(data => {
-    // For this simplified app, private capsules are for the user themselves, so no recipient email is needed.
-    // In a real app, you would check for a recipient email if sending to others.
+    if (data.visibility === 'private-recipient') {
+        return !!data.recipientEmail && z.string().email().safeParse(data.recipientEmail).success;
+    }
     return true;
+}, {
+    message: "A valid recipient email is required for this option.",
+    path: ["recipientEmail"],
 });
 
 
@@ -86,10 +90,12 @@ export function CreateCapsuleForm() {
     defaultValues: {
       title: "",
       message: "",
-      visibility: "private",
+      visibility: "private-self",
       recipientEmail: "",
     },
   });
+
+  const visibility = form.watch("visibility");
 
   async function handleSuggestLocation() {
     const messageContent = form.getValues("message");
@@ -120,8 +126,8 @@ export function CreateCapsuleForm() {
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user || (!masterKey && values.visibility === 'private')) {
-        toast({ title: "Authentication Error", description: "You must be logged in and have a master key available to create a private capsule.", variant: "destructive" });
+    if (!user) {
+        toast({ title: "Authentication Error", description: "You must be logged in to create a capsule.", variant: "destructive" });
         return;
     }
 
@@ -134,18 +140,21 @@ export function CreateCapsuleForm() {
         title: values.title,
         openDate: values.openDate,
         visibility: values.visibility,
-        recipientEmail: user.email, // Private capsules are to self in this version
         messageIV,
         encryptedMessage,
       };
 
-      if (values.visibility === 'private') {
-        if (!masterKey) throw new Error("Master key is not available.");
+      if (values.visibility === 'private-self') {
+        if (!masterKey) throw new Error("Master key is not available for a private capsule. Please try logging out and in again.");
         const { iv: keyIV, wrappedKey } = await wrapKey(messageKey, masterKey);
         capsuleData.keyIV = keyIV;
         capsuleData.wrappedKey = wrappedKey;
-      } else {
+        capsuleData.recipientEmail = user.email;
+      } else { // public or private-recipient
         capsuleData.key = await exportKeyToString(messageKey);
+        if (values.visibility === 'private-recipient') {
+          capsuleData.recipientEmail = values.recipientEmail;
+        }
       }
 
       await createCapsule(capsuleData, user.uid);
@@ -154,11 +163,11 @@ export function CreateCapsuleForm() {
       form.reset();
       setAiSuggestion(null);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create capsule:", error);
       toast({
         title: "Creation Failed",
-        description: "Something went wrong while sealing your capsule. Please try again.",
+        description: error.message || "Something went wrong while sealing your capsule. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -207,7 +216,7 @@ export function CreateCapsuleForm() {
                       />
                     </FormControl>
                      <FormDescription>
-                      Your message is end-to-end encrypted. No one, not even us, can read it.
+                      Your message is end-to-end encrypted.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -278,14 +287,14 @@ export function CreateCapsuleForm() {
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) =>
-                            date < new Date() || date < new Date("1900-01-01")
+                            date < new Date(new Date().setDate(new Date().getDate() + 1))
                           }
                           initialFocus
                         />
                       </PopoverContent>
                     </Popover>
                     <FormDescription>
-                      The date when this capsule can be unsealed.
+                      The date when this capsule can be unsealed. Must be in the future.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -305,13 +314,21 @@ export function CreateCapsuleForm() {
                       >
                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
-                            <RadioGroupItem value="private" />
+                            <RadioGroupItem value="private-self" />
                           </FormControl>
                           <FormLabel className="font-normal">
-                            Private (only you can open)
+                            Private (just for you)
                           </FormLabel>
                         </FormItem>
                         <FormItem className="flex items-center space-x-3 space-y-0">
+                          <FormControl>
+                            <RadioGroupItem value="private-recipient" />
+                          </FormControl>
+                          <FormLabel className="font-normal">
+                             Private (for someone else)
+                          </FormLabel>
+                        </FormItem>
+                         <FormItem className="flex items-center space-x-3 space-y-0">
                           <FormControl>
                             <RadioGroupItem value="public" />
                           </FormControl>
@@ -325,13 +342,30 @@ export function CreateCapsuleForm() {
                   </FormItem>
                 )}
               />
+              {visibility === 'private-recipient' && (
+                <FormField
+                  control={form.control}
+                  name="recipientEmail"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recipient's Email</FormLabel>
+                      <FormControl>
+                        <Input placeholder="friend@example.com" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        The recipient must have a ChronoVault account to open the capsule.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
           
           <div className="flex justify-end">
               <Button type="submit" size="lg" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="animate-spin" />}
-                  Seal Time Capsule
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : "Seal Time Capsule"}
               </Button>
           </div>
         </form>

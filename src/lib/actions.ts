@@ -59,8 +59,20 @@ export async function getUserDocument(uid: string): Promise<UserDoc | null> {
     }
 }
 
+/**
+ * Finds a user by their email address.
+ */
+export async function getUserByEmail(email: string): Promise<UserDoc | null> {
+    if (!db) throw new Error(notConfiguredError);
+    const q = query(collection(db, "users"), where("email", "==", email));
+    const querySnapshot = await getDocs(q);
+    if (querySnapshot.empty) {
+        return null;
+    }
+    return querySnapshot.docs[0].data() as UserDoc;
+}
 
-// NOTE: This type is now different. It accepts key materials based on visibility.
+
 type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate' | 'status'> & { openDate: Date };
 
 
@@ -70,17 +82,28 @@ type CreateCapsuleInput = Omit<CapsuleDoc, 'userId' | 'createdAt' | 'openDate' |
 export async function createCapsule(data: CreateCapsuleInput, userId: string): Promise<string> {
     if (!db) throw new Error(notConfiguredError);
     try {
-        const docRef = await addDoc(collection(db, "capsules"), {
+        let finalData: any = {
             ...data,
             userId: userId,
             status: 'sealed',
             openDate: Timestamp.fromDate(data.openDate),
             createdAt: Timestamp.now(),
-        });
+        };
+
+        if (data.visibility === 'private-recipient') {
+            if (!data.recipientEmail) throw new Error("Recipient email is required for this capsule type.");
+            const recipientUser = await getUserByEmail(data.recipientEmail);
+            if (!recipientUser) throw new Error(`No user found with the email: ${data.recipientEmail}. Please ensure they have a ChronoVault account.`);
+            finalData.recipientId = recipientUser.uid;
+        } else if (data.visibility === 'private-self') {
+            finalData.recipientId = userId;
+        }
+
+        const docRef = await addDoc(collection(db, "capsules"), finalData);
         return docRef.id;
-    } catch (e) {
+    } catch (e: any) {
         console.error("Error adding document: ", e);
-        throw new Error("Could not create capsule.");
+        throw new Error(e.message || "Could not create capsule.");
     }
 }
 
@@ -93,33 +116,51 @@ export async function updateCapsuleStatus(capsuleId: string, status: CapsuleStat
         const capsuleRef = doc(db, "capsules", capsuleId);
         await updateDoc(capsuleRef, { status });
     } catch (e) {
-        // This is a non-critical background update. Log the error but don't throw,
-        // as the user has already seen their message.
         console.error("Error updating capsule status: ", e);
     }
 }
 
 /**
- * Fetches all capsules for a given user.
+ * Fetches all capsules for a given user (both created by and sent to them).
  */
 export async function getCapsulesForUser(userId: string): Promise<SerializableCapsuleDoc[]> {
     if (!db) throw new Error(notConfiguredError);
     try {
-        const q = query(collection(db, "capsules"), where("userId", "==", userId));
-        const querySnapshot = await getDocs(q);
-        const capsules: SerializableCapsuleDoc[] = [];
-        querySnapshot.forEach((doc) => {
-            const data = doc.data() as CapsuleDoc;
-            const { openDate, createdAt, ...rest } = data;
-            capsules.push({
-                id: doc.id,
-                ...rest,
-                openDate: openDate.toDate().toISOString(),
-                createdAt: createdAt.toDate().toISOString(),
-            });
-        });
+        // Capsules created by the user
+        const createdQ = query(collection(db, "capsules"), where("userId", "==", userId));
 
-        // Sort the results in the action itself to avoid needing a composite index.
+        // Capsules sent to the user by others
+        const receivedQ = query(
+            collection(db, "capsules"),
+            where("recipientId", "==", userId),
+            where("visibility", "==", "private-recipient")
+        );
+
+        const [createdSnapshot, receivedSnapshot] = await Promise.all([
+            getDocs(createdQ),
+            getDocs(receivedQ)
+        ]);
+
+        const capsulesMap = new Map<string, SerializableCapsuleDoc>();
+
+        const processSnapshot = (snapshot: any) => {
+             snapshot.forEach((doc: any) => {
+                const data = doc.data() as CapsuleDoc;
+                const { openDate, createdAt, ...rest } = data;
+                capsulesMap.set(doc.id, {
+                    id: doc.id,
+                    ...rest,
+                    openDate: openDate.toDate().toISOString(),
+                    createdAt: createdAt.toDate().toISOString(),
+                });
+            });
+        };
+
+        processSnapshot(createdSnapshot);
+        processSnapshot(receivedSnapshot);
+
+        const capsules = Array.from(capsulesMap.values());
+        
         capsules.sort((a, b) => new Date(b.openDate).getTime() - new Date(a.openDate).getTime());
 
         return capsules;

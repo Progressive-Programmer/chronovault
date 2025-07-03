@@ -1,6 +1,8 @@
 import type { Timestamp } from "firebase/firestore";
 
 export type CapsuleStatus = 'sealed' | 'ready' | 'opened' | 'expired';
+export type CapsuleVisibility = 'private-self' | 'private-recipient' | 'public';
+
 
 // This type is used for UI components like CapsuleCard and CapsuleList.
 // It's derived from the Firestore document.
@@ -14,23 +16,27 @@ export type Capsule = {
 
 // This type represents the data structure stored in a Firestore document.
 export type CapsuleDoc = {
-  userId: string;
+  userId: string; // The creator of the capsule
   title: string;
   openDate: Timestamp;
-  visibility: 'private' | 'public';
+  visibility: CapsuleVisibility;
   status: CapsuleStatus;
-  recipientEmail: string;
   createdAt: Timestamp;
+
+  // The recipient's email. For 'private-self', this will be the creator's email.
+  recipientEmail?: string; 
+  // For 'private-recipient', this will be the recipient's UID.
+  recipientId?: string; 
 
   // Encryption materials
   messageIV: string; // IV for the message itself
   encryptedMessage: string; // Base64 encoded encrypted message data
   
-  // For 'private' capsules, the key is wrapped with the user's master key
+  // For 'private-self' capsules, the key is wrapped with the user's master key
   wrappedKey?: string; // The message key, encrypted
   keyIV?: string; // The IV for the key encryption
 
-  // For 'public' capsules, the key is stored in plaintext (but protected by Firestore rules until open)
+  // For 'public' and 'private-recipient' capsules, the key is stored (protected by Firestore rules)
   key?: string; 
 };
 

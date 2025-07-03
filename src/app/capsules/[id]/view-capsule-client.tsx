@@ -7,7 +7,7 @@ import { updateCapsuleStatus } from '@/lib/actions';
 import { format, formatDistanceToNowStrict } from 'date-fns';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Loader2, Lock, AlertTriangle, Eye } from 'lucide-react';
+import { Loader2, Lock, AlertTriangle, Eye, User } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
 enum ViewState {
@@ -16,6 +16,7 @@ enum ViewState {
   DECRYPTING,
   UNSEALED,
   DECRYPTION_FAILED,
+  NO_PERMISSION,
   ERROR
 }
 
@@ -51,12 +52,17 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
         try {
             let messageKey: CryptoKey;
 
-            if (capsuleData.visibility === 'private') {
-                if (!user) throw new Error("User not logged in for private capsule.");
-                if (!masterKey) throw new Error("Master key not available. Please try logging out and back in.");
-                if (!capsuleData.wrappedKey || !capsuleData.keyIV) throw new Error("Missing key material for private capsule.");
+            if (capsuleData.visibility === 'private-self') {
+                if (user?.uid !== capsuleData.userId) throw new Error("Permission denied: Not the creator of this self-capsule.");
+                if (!masterKey) throw new Error("Master key not available for self-capsule. Please try logging out and back in.");
+                if (!capsuleData.wrappedKey || !capsuleData.keyIV) throw new Error("Missing key material for self-capsule.");
                 
                 messageKey = await unwrapKey(capsuleData.wrappedKey, capsuleData.keyIV, masterKey);
+            } else if (capsuleData.visibility === 'private-recipient') {
+                 if (user?.uid !== capsuleData.recipientId) throw new Error("Permission denied: Not the recipient of this capsule.");
+                 if (!capsuleData.key) throw new Error("Missing key for recipient-capsule.");
+
+                 messageKey = await importKeyFromString(capsuleData.key);
             } else { // public
                 if (!capsuleData.key) throw new Error("Missing key for public capsule.");
                 
@@ -71,9 +77,13 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                 await updateCapsuleStatus(capsuleData.id, 'opened');
             }
 
-        } catch (err) {
+        } catch (err: any) {
             console.error("Decryption failed:", err);
-            setViewState(ViewState.DECRYPTION_FAILED);
+            if (err.message.startsWith('Permission denied')) {
+                setViewState(ViewState.NO_PERMISSION);
+            } else {
+                setViewState(ViewState.DECRYPTION_FAILED);
+            }
         }
     }, [capsuleData, masterKey, user]);
 
@@ -90,20 +100,15 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
         }
 
         // At this point, it's ready to open. We need to decide if we can decrypt.
-        if (capsuleData.visibility === 'private') {
-            // For private capsules, we must have a user and a master key.
-            if (user && masterKey) {
-                handleDecrypt();
-            } else {
-                // If we have a user but no key, or no user at all, decryption is impossible.
-                setViewState(ViewState.DECRYPTION_FAILED);
-            }
-        } else {
-            // Public capsules can be decrypted by anyone.
-            handleDecrypt();
+        const isPrivate = capsuleData.visibility === 'private-self' || capsuleData.visibility === 'private-recipient';
+        if (isPrivate && !user) {
+            setViewState(ViewState.NO_PERMISSION);
+            return;
         }
+        
+        handleDecrypt();
 
-    }, [isReadyToOpen, capsuleData, masterKey, user, authLoading, handleDecrypt]);
+    }, [isReadyToOpen, capsuleData, user, authLoading, handleDecrypt]);
 
     const renderContent = () => {
         switch (viewState) {
@@ -128,6 +133,17 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                         <p className="text-muted-foreground mt-2">Decrypting your message from the past.</p>
                     </div>
                 );
+            
+            case ViewState.NO_PERMISSION:
+                return (
+                     <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Access Denied</AlertTitle>
+                        <AlertDescription>
+                            You do not have permission to view this private capsule. Please ensure you are logged in with the correct account.
+                        </AlertDescription>
+                    </Alert>
+                );
 
             case ViewState.DECRYPTION_FAILED:
                 return (
@@ -135,7 +151,7 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Decryption Failed</AlertTitle>
                         <AlertDescription>
-                            We couldn&apos;t decrypt this message. This can happen if the data is corrupt or the encryption key is missing. For private capsules, your session may have expired; please try logging out and back in.
+                            We couldn&apos;t decrypt this message. This can happen if the data is corrupt or the encryption key is invalid. For private capsules, your session may have expired; please try logging out and back in.
                         </AlertDescription>
                     </Alert>
                 );
@@ -165,14 +181,16 @@ export default function ViewCapsuleClient({ capsuleData }: { capsuleData: Serial
              <Card className="overflow-hidden">
                 <CardHeader>
                     <CardTitle className="font-headline text-3xl">{capsuleData.title}</CardTitle>
-                    <CardDescription>
-                        Capsule sealed on {format(new Date(capsuleData.createdAt), "PPP")}.
+                    <CardDescription className="flex flex-col gap-1">
+                        <span>Capsule sealed on {format(new Date(capsuleData.createdAt), "PPP")}.</span>
                         {capsuleData.status === 'opened' ? (
                             <span className="flex items-center gap-2"> <Eye className="size-4" /> Opened on {format(openDate, "PPP")}.</span>
                         ) : (
                             <span> Scheduled to open on {format(openDate, "PPP")}.</span>
                         )}
-                        
+                        {capsuleData.visibility === 'private-recipient' && capsuleData.recipientEmail && (
+                            <span className="flex items-center gap-2"><User className="size-4" /> Intended for: {capsuleData.recipientEmail}</span>
+                        )}
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
